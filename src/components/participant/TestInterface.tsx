@@ -28,6 +28,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   const [loading, setLoading] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -45,7 +46,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
       if (sectionsError) throw sectionsError;
 
       const sectionsWithQuestions = await Promise.all(
-        (sectionsData || []).map(async (section) => {
+        (sectionsData || []).map(async (section: TestSection) => {
           const { data: questions, error: questionsError } = await supabase
             .from('questions')
             .select('*')
@@ -55,7 +56,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
           if (questionsError) throw questionsError;
 
           const questionsWithOptions = await Promise.all(
-            (questions || []).map(async (question) => {
+            (questions || []).map(async (question: Question) => {
               const { data: options, error: optionsError } = await supabase
                 .from('question_options')
                 .select('*')
@@ -104,7 +105,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
         const answersMap: Record<string, string> = {};
         const flaggedMap: Record<string, boolean> = {};
 
-        existingAnswers.forEach((answer) => {
+        existingAnswers.forEach((answer: { question_id: string; selected_answer?: string; is_flagged: boolean }) => {
           if (answer.selected_answer) {
             answersMap[answer.question_id] = answer.selected_answer;
           }
@@ -126,6 +127,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   const currentSection = sections[currentSectionIndex];
   const currentQuestion = currentSection?.questions[currentQuestionIndex];
   const totalQuestions = sections.reduce((sum, section) => sum + section.questions.length, 0);
+
   const handleAnswer = async (answer: string) => {
     if (!currentQuestion) return;
 
@@ -193,6 +195,9 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   };
 
   const handleFinish = async () => {
+    if (finishing) return;
+    setFinishing(true);
+
     try {
       const { error } = await supabase
         .from('test_sessions')
@@ -205,11 +210,13 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
       if (error) throw error;
 
       await calculateScore(sessionId);
-
       window.location.href = '/results';
     } catch (error) {
       console.error('Error finishing test:', error);
-      alert('Failed to finish the test. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to finish the test. Please try again.';
+      alert(message);
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -372,15 +379,17 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowFinishModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={finishing}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
-                onClick={handleFinish}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => void handleFinish()}
+                disabled={finishing}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-gray-400"
               >
-                Finish
+                {finishing ? 'Finishing...' : 'Finish'}
               </button>
             </div>
           </div>

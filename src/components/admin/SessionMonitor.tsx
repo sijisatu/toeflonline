@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Camera, CircleOff, RefreshCcw } from 'lucide-react';
+import { AlertTriangle, Camera, CircleOff, RefreshCcw, MonitorPlay } from 'lucide-react';
 import { TestPackage, TestSession, supabase } from '../../lib/supabase';
 
 type ProfileLite = {
@@ -13,6 +13,10 @@ type ProctoringLogLite = {
   session_id: string;
   event_type: string;
   timestamp: string;
+  event_data?: {
+    imageData?: string;
+    capturedAt?: string;
+  } | null;
 };
 
 type SessionView = TestSession & {
@@ -22,6 +26,7 @@ type SessionView = TestSession & {
   answerCount: number;
   violationCount: number;
   latestLog: ProctoringLogLite | null;
+  latestSnapshot: ProctoringLogLite | null;
 };
 
 export function SessionMonitor() {
@@ -65,10 +70,9 @@ export function SessionMonitor() {
       if (sessionError) throw sessionError;
 
       const sessionsData = sessionRows || [];
-
-      const profileIds = Array.from(new Set(sessionsData.map((session) => session.user_id)));
-      const packageIds = Array.from(new Set(sessionsData.map((session) => session.package_id)));
-      const sessionIds = sessionsData.map((session) => session.id);
+      const profileIds = Array.from(new Set(sessionsData.map((session: TestSession) => session.user_id)));
+      const packageIds = Array.from(new Set(sessionsData.map((session: TestSession) => session.package_id)));
+      const sessionIds = sessionsData.map((session: TestSession) => session.id);
 
       let profileRows: ProfileLite[] = [];
       if (profileIds.length) {
@@ -95,7 +99,7 @@ export function SessionMonitor() {
       if (sessionIds.length) {
         const { data, error } = await supabase
           .from('proctoring_logs')
-          .select('id, session_id, event_type, timestamp')
+          .select('id, session_id, event_type, timestamp, event_data')
           .in('session_id', sessionIds)
           .order('timestamp', { ascending: false });
         if (error) throw error;
@@ -117,12 +121,13 @@ export function SessionMonitor() {
         logMap.set(log.session_id, current);
       }
 
-      const nextSessions: SessionView[] = sessionsData.map((session) => {
+      const nextSessions: SessionView[] = sessionsData.map((session: TestSession) => {
         const profile = profileMap.get(session.user_id);
         const pkg = packageMap.get(session.package_id);
         const logs = logMap.get(session.id) || [];
+        const latestSnapshot = logs.find((log) => log.event_type === 'snapshot_uploaded' && log.event_data?.imageData) || null;
         const violations = logs.filter((log) =>
-          ['camera_blocked', 'microphone_blocked', 'tab_switch', 'face_not_detected', 'multiple_faces'].includes(
+          ['camera_blocked', 'microphone_blocked', 'tab_switch', 'face_not_detected', 'multiple_faces', 'fullscreen_exit'].includes(
             log.event_type
           )
         ).length;
@@ -135,6 +140,7 @@ export function SessionMonitor() {
           answerCount: answerCountMap.get(session.id) || 0,
           violationCount: violations,
           latestLog: logs[0] || null,
+          latestSnapshot,
         };
       });
 
@@ -161,7 +167,6 @@ export function SessionMonitor() {
         .eq('id', sessionId);
 
       if (error) throw error;
-
       await loadSessions(false);
     } catch (error) {
       console.error('Error marking session abandoned:', error);
@@ -178,7 +183,7 @@ export function SessionMonitor() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Live Sessions</h2>
-          <p className="text-sm text-gray-600">Track active attempts, proctoring events, and session status.</p>
+          <p className="text-sm text-gray-600">Track active attempts, proctoring events, session status, and latest camera snapshots.</p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -252,6 +257,10 @@ export function SessionMonitor() {
                     <Camera className="h-4 w-4 text-gray-500" />
                     <span>{session.proctoring_enabled ? 'Camera/mic required' : 'Proctoring disabled'}</span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <MonitorPlay className="h-4 w-4 text-gray-500" />
+                    <span>{session.latestSnapshot ? 'Snapshot available' : 'No snapshot yet'}</span>
+                  </div>
                 </div>
               </div>
 
@@ -266,6 +275,26 @@ export function SessionMonitor() {
                   <div className="text-sm text-gray-500">No proctoring logs recorded yet.</div>
                 )}
               </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="mb-3 text-sm font-semibold text-gray-900">Participant Camera Preview</div>
+              {session.latestSnapshot?.event_data?.imageData ? (
+                <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+                  <img
+                    src={session.latestSnapshot.event_data.imageData}
+                    alt={`Latest snapshot for ${session.participantName}`}
+                    className="h-56 w-full object-cover"
+                  />
+                  <div className="border-t border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
+                    Captured {new Date(session.latestSnapshot.timestamp).toLocaleString()}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+                  Snapshot peserta belum tersedia. Tunggu sekitar 20 detik setelah test dimulai lalu klik refresh.
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -336,6 +365,10 @@ function formatEventLabel(eventType: string) {
       return 'Session started';
     case 'session_ended':
       return 'Session ended';
+    case 'snapshot_uploaded':
+      return 'Snapshot uploaded';
+    case 'fullscreen_exit':
+      return 'Fullscreen exited';
     default:
       return eventType;
   }
