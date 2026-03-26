@@ -48,13 +48,11 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
       ]);
 
       const { data: sectionsData, error: sectionsError } = sectionsResult;
-
       if (sectionsError) throw sectionsError;
 
       const rawSections = (sectionsData || []) as TestSection[];
       const sectionIds = rawSections.map((section) => section.id);
-
-      let questionsBySection = new Map<string, QuestionWithOptions[]>();
+      const questionsBySection = new Map<string, QuestionWithOptions[]>();
 
       if (sectionIds.length > 0) {
         const { data: questionsData, error: questionsError } = await supabase
@@ -67,8 +65,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
 
         const rawQuestions = (questionsData || []) as Question[];
         const questionIds = rawQuestions.map((question) => question.id);
-
-        let optionsByQuestion = new Map<string, QuestionOption[]>();
+        const optionsByQuestion = new Map<string, QuestionOption[]>();
 
         if (questionIds.length > 0) {
           const { data: optionsData, error: optionsError } = await supabase
@@ -104,13 +101,11 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
       setSections(sectionsWithQuestions);
 
       const { data: sessionData } = sessionResult;
-
       if (sessionData) {
         setTimeRemaining(sessionData.time_remaining_seconds);
 
         if (sessionData.current_section_id) {
           const sectionIndex = sectionsWithQuestions.findIndex((section) => section.id === sessionData.current_section_id);
-
           if (sectionIndex >= 0) {
             setCurrentSectionIndex(sectionIndex);
             setCurrentQuestionIndex(Math.max((sessionData.current_question_number || 1) - 1, 0));
@@ -119,18 +114,13 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
       }
 
       const { data: existingAnswers } = answersResult;
-
       if (existingAnswers) {
         const answersMap: Record<string, string> = {};
         const flaggedMap: Record<string, boolean> = {};
 
         existingAnswers.forEach((answer: { question_id: string; selected_answer?: string; is_flagged: boolean }) => {
-          if (answer.selected_answer) {
-            answersMap[answer.question_id] = answer.selected_answer;
-          }
-          if (answer.is_flagged) {
-            flaggedMap[answer.question_id] = true;
-          }
+          if (answer.selected_answer) answersMap[answer.question_id] = answer.selected_answer;
+          if (answer.is_flagged) flaggedMap[answer.question_id] = true;
         });
 
         setAnswers(answersMap);
@@ -209,7 +199,6 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
     startTimeRef.current = Date.now();
 
     const nextSection = sections[sectionIndex];
-
     if (nextSection) {
       void supabase
         .from('test_sessions')
@@ -250,9 +239,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   const handlePrevious = () => {
     navigateToQuestion(
       currentQuestionIndex > 0 ? currentSectionIndex : Math.max(currentSectionIndex - 1, 0),
-      currentQuestionIndex > 0
-        ? currentQuestionIndex - 1
-        : Math.max((sections[currentSectionIndex - 1]?.questions.length || 1) - 1, 0)
+      currentQuestionIndex > 0 ? currentQuestionIndex - 1 : Math.max((sections[currentSectionIndex - 1]?.questions.length || 1) - 1, 0),
     );
   };
 
@@ -273,7 +260,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f3f6ff] flex items-center justify-center px-4">
-        <div className="glass-card-strong w-full max-w-md p-10 text-center">
+        <div className="glass-card-strong w-full max-w-md p-8 text-center sm:p-10">
           <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-[#d7e1ff] border-t-[color:var(--blue)]" />
           <p className="mt-6 text-sm text-[color:var(--ink-soft)]">Loading test sections and saved answers...</p>
         </div>
@@ -284,12 +271,12 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   if (sections.length === 0 || !currentQuestion) {
     return (
       <div className="min-h-screen bg-[#f3f6ff] flex items-center justify-center p-4">
-        <div className="glass-card-strong max-w-xl p-10 text-center">
-          <h2 className="text-3xl font-extrabold">Test content not available</h2>
+        <div className="glass-card-strong max-w-xl p-8 text-center sm:p-10">
+          <h2 className="text-2xl font-extrabold sm:text-3xl">Test content not available</h2>
           <p className="mt-4 text-sm leading-7 text-[color:var(--ink-soft)]">
             This package does not have complete sections or questions yet. Please contact the admin.
           </p>
-          <button onClick={() => (window.location.href = '/')} className="primary-btn mt-8">
+          <button onClick={() => (window.location.href = '/')} className="primary-btn mt-8 w-full sm:w-auto">
             Back to Dashboard
           </button>
         </div>
@@ -298,46 +285,46 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#f3f6ff] pb-24 pt-4">
+    <div className="min-h-screen bg-[#f3f6ff] pb-28 pt-3 sm:pt-4">
       <ProctoringMonitor sessionId={sessionId} />
 
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 space-y-5">
-        <header className="sticky top-0 z-20 rounded-[24px] border border-[rgba(119,123,179,0.14)] bg-white px-5 py-5 shadow-[0_10px_22px_rgba(71,80,140,0.08)]">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-4xl font-extrabold">The Lucid Scholar</h1>
-                <span className="status-pill bg-[color:var(--blue-soft)] text-[color:var(--blue-deep)]">
+      <div className="mx-auto w-full max-w-7xl space-y-4 px-3 sm:px-5 lg:px-8">
+        <header className="z-20 rounded-[22px] border border-[rgba(119,123,179,0.14)] bg-white px-4 py-4 shadow-[0_10px_22px_rgba(71,80,140,0.08)] sm:px-5 sm:py-5 lg:sticky lg:top-0">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                <h1 className="truncate text-2xl font-extrabold sm:text-3xl lg:text-4xl">The Lucid Scholar</h1>
+                <span className="status-pill w-fit bg-[color:var(--blue-soft)] text-[color:var(--blue-deep)]">
                   {currentSection?.title}
                 </span>
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-semibold text-[color:var(--ink-soft)]">
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs font-semibold text-[color:var(--ink-soft)] sm:text-sm">
                 <span>
                   Question {currentQuestion.question_number} of {totalQuestions}
                 </span>
-                <span className="text-[rgba(107,118,149,0.5)]">â€¢</span>
+                <span className="hidden text-[rgba(107,118,149,0.5)] sm:inline">•</span>
                 <span>{completedQuestions} answered</span>
-                <span className="text-[rgba(107,118,149,0.5)]">â€¢</span>
+                <span className="hidden text-[rgba(107,118,149,0.5)] sm:inline">•</span>
                 <span>{progressPercent}% complete</span>
               </div>
-              <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/70">
-                <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#2358e6,#5a90ff)] transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
+              <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-[#eef2ff] sm:h-3">
+                <div className="h-full rounded-full bg-[linear-gradient(90deg,#2358e6,#5a90ff)] transition-all" style={{ width: `${progressPercent}%` }} />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] lg:w-auto lg:grid-cols-none lg:auto-cols-max lg:grid-flow-col lg:items-center">
               <TestTimer initialSeconds={timeRemaining} onTimeUp={() => setShowFinishModal(true)} sessionId={sessionId} />
-              <button onClick={() => setShowFinishModal(true)} className="primary-btn bg-[linear-gradient(135deg,#e5a600,#cf8200)] shadow-[0_18px_30px_rgba(207,130,0,0.22)]">
+              <button
+                onClick={() => setShowFinishModal(true)}
+                className="primary-btn w-full bg-[linear-gradient(135deg,#e5a600,#cf8200)] shadow-[0_18px_30px_rgba(207,130,0,0.22)] sm:w-auto"
+              >
                 Selesai
               </button>
             </div>
           </div>
         </header>
 
-        <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+        <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)] xl:gap-5">
           <div className="order-2 xl:order-1">
             <TestNavigation
               sections={sections}
@@ -349,12 +336,12 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
             />
           </div>
 
-          <main className="order-1 xl:order-2">
-            <div className="rounded-[28px] border border-[rgba(119,123,179,0.14)] bg-white p-5 shadow-[0_12px_28px_rgba(71,80,140,0.08)] sm:p-6 lg:p-8">
-              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
+          <main className="order-1 xl:order-2 min-w-0">
+            <div className="rounded-[24px] border border-[rgba(119,123,179,0.14)] bg-white p-4 shadow-[0_12px_28px_rgba(71,80,140,0.08)] sm:p-6 lg:rounded-[28px] lg:p-8">
+              <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
                   <div className="eyebrow">Section {currentSectionIndex + 1}</div>
-                  <h2 className="mt-4 text-3xl font-extrabold">{currentSection.title}</h2>
+                  <h2 className="mt-3 text-2xl font-extrabold sm:text-3xl">{currentSection.title}</h2>
                   <p className="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">
                     Move through the section with the navigation panel and use flagging when you need review.
                   </p>
@@ -362,10 +349,10 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
 
                 <button
                   onClick={handleFlag}
-                  className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all ${
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all md:w-auto ${
                     flagged[currentQuestion.id]
                       ? 'bg-[#fff0d7] text-[#9a6204] shadow-[0_14px_24px_rgba(169,103,0,0.14)]'
-                      : 'bg-white text-[color:var(--ink-main)] border border-[rgba(119,123,179,0.18)]'
+                      : 'border border-[rgba(119,123,179,0.18)] bg-white text-[color:var(--ink-main)]'
                   }`}
                 >
                   <Flag className="h-4 w-4" />
@@ -373,35 +360,31 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
                 </button>
               </div>
 
-              <QuestionDisplay
-                question={currentQuestion}
-                selectedAnswer={answers[currentQuestion.id]}
-                onSelectAnswer={handleAnswer}
-              />
+              <QuestionDisplay question={currentQuestion} selectedAnswer={answers[currentQuestion.id]} onSelectAnswer={handleAnswer} />
             </div>
           </main>
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-20 mt-6 border-t border-[rgba(119,123,179,0.12)] bg-white px-4 py-4 shadow-[0_-8px_20px_rgba(71,80,140,0.06)]">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[rgba(119,123,179,0.12)] bg-white/95 px-3 py-3 shadow-[0_-8px_20px_rgba(71,80,140,0.06)] backdrop-blur sm:px-4 sm:py-4">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-2 gap-3 md:flex md:items-center md:justify-between">
+          <div className="col-span-2 order-3 text-center text-xs font-semibold text-[color:var(--ink-soft)] md:order-none md:flex-1 md:text-sm">
+            Change the answer anytime before you finish the session.
+          </div>
+
           <button
             onClick={handlePrevious}
             disabled={currentSectionIndex === 0 && currentQuestionIndex === 0}
-            className="secondary-btn disabled:cursor-not-allowed disabled:opacity-50"
+            className="secondary-btn w-full disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
           >
             <ArrowLeft className="h-4 w-4" />
             Previous
           </button>
 
-          <div className="text-center text-sm font-semibold text-[color:var(--ink-soft)]">
-            Change the answer anytime before you finish the session.
-          </div>
-
           <button
             onClick={handleNext}
             disabled={currentSectionIndex === sections.length - 1 && currentQuestionIndex === currentSection.questions.length - 1}
-            className="primary-btn disabled:cursor-not-allowed disabled:opacity-50"
+            className="primary-btn w-full disabled:cursor-not-allowed disabled:opacity-50 md:w-auto"
           >
             Next
             <ArrowRight className="h-4 w-4" />
@@ -412,12 +395,12 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
       {showFinishModal && (
         <div className="modal-scrim">
           <div className="modal-card max-w-lg">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff0d7] text-[#a96700]">
+            <div className="flex items-start gap-3 sm:items-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#fff0d7] text-[#a96700]">
                 <AlertTriangle className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-2xl font-extrabold">Finish Test?</h3>
+                <h3 className="text-xl font-extrabold sm:text-2xl">Finish Test?</h3>
                 <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
                   You have answered {completedQuestions} out of {totalQuestions} questions.
                 </p>
@@ -429,11 +412,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
             </div>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                onClick={() => setShowFinishModal(false)}
-                disabled={finishing}
-                className="secondary-btn w-full disabled:opacity-50"
-              >
+              <button onClick={() => setShowFinishModal(false)} disabled={finishing} className="secondary-btn w-full disabled:opacity-50">
                 Cancel
               </button>
               <button onClick={() => void handleFinish()} disabled={finishing} className="primary-btn w-full disabled:opacity-50">
@@ -446,4 +425,3 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
     </div>
   );
 }
-

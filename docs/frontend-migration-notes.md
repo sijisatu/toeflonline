@@ -1,15 +1,14 @@
-# Frontend Migration Notes
+# Frontend Runtime Notes
 
-The current frontend works because `src/lib/supabase.ts` simulates auth and database behavior in browser storage. That file must become a real HTTP client layer.
+The frontend is no longer backed by browser-only mock storage. `src/lib/supabase.ts` is currently a compatibility shim that talks to the NestJS backend over HTTP/WebSocket while preserving the existing call shape.
 
-## Replacement approach
+## Important implication
 
-- keep the domain models in a new `src/types/api.ts`
-- replace `supabase.from(... )` calls with explicit API functions
-- centralize auth token storage and refresh behavior
-- centralize WebSocket subscriptions for admin live-monitor updates
+`src/lib/supabase.ts` is now an application transport shim, not a real Supabase client. It remains in place only to avoid a large UI refactor during the production hardening phase.
 
-## Suggested frontend service split
+## Recommended future refactor
+
+When the application is functionally stable in production, split the shim into explicit API modules:
 
 - `src/api/client.ts`
 - `src/api/auth.ts`
@@ -18,11 +17,4 @@ The current frontend works because `src/lib/supabase.ts` simulates auth and data
 - `src/api/proctoring.ts`
 - `src/api/reports.ts`
 
-## First screens to migrate
-
-1. Login
-2. Participant dashboard package list
-3. Test start session
-4. Admin live sessions
-
-These give the fastest proof that the browser mock is no longer the source of truth.
+That refactor is now optional technical debt cleanup, not a production blocker.

@@ -1,77 +1,78 @@
 # TOEFL Online Production Architecture
 
-## Target shape
+## Final target
 
-- `frontend`: existing Vite React app, migrated away from `localStorage` mock data
-- `backend`: NestJS API with Fastify adapter
-- `database`: PostgreSQL on self-managed server
-- `cache/realtime`: Redis for rate limiting, pub/sub, and transient monitoring state
-- `reverse proxy`: Nginx for TLS termination, static assets, API proxying, and WebSocket upgrade
+The repository is now aligned to a production-targeted hybrid architecture:
 
-## Why this stack
+- `frontend`: React + Vite, built as static assets
+- `backend`: NestJS + Fastify API and realtime signaling service
+- `cache/realtime`: Redis
+- `database`: self-managed PostgreSQL
+- `reverse proxy`: Nginx
+- `media`: local mounted storage or object storage compatible path
 
-- React can be retained, so the current UI investment is preserved.
-- NestJS gives clear module boundaries for auth, sessions, tests, proctoring, and reports.
-- PostgreSQL fits relational exam data, auditability, and reporting better than browser storage.
-- Redis reduces pressure on PostgreSQL for presence, heartbeats, and admin live-monitor dashboards.
-- Fastify keeps the Node backend efficient under 100-200 concurrent exam participants.
+## Deployment stance
+
+The preferred production stance is:
+
+- containerize the application services
+  - frontend
+  - backend
+  - redis
+  - optional TURN
+- treat PostgreSQL as dedicated infrastructure
+  - native on the server or on a separate database host
+  - do not make the public app depend on browser storage or third-party hosted Supabase services
+
+This gives repeatable deployment for the app layer while keeping database operations, backup, restore, and maintenance more controlled.
+
+## Why this is the chosen shape
+
+- React preserves the UI investment already made.
+- NestJS keeps auth, tests, sessions, proctoring, media, and reports in clear modules.
+- PostgreSQL fits relational test data, reporting, auditability, and session history.
+- Redis supports transient monitoring state, rate limiting, and realtime coordination.
+- Fastify keeps the Node backend efficient for concurrent exam sessions.
 
 ## Realtime strategy
 
-The system should not attempt to stream live video for every participant at all times. For 100-200 concurrent participants over the internet, the scalable baseline is:
+The intended production behavior is selective live monitoring, not all-participant full broadcast.
 
-- WebSocket heartbeat for participant presence
-- proctoring events such as tab switch, fullscreen exit, camera off, mic off
-- progress updates and answer autosave events
-- optional snapshot uploads on interval or on suspicious events
-- selective live review only for flagged participants
+- heartbeat and presence over sockets
+- proctoring event logs
+- live camera review only for selected active participants
+- fallback snapshots when live transport is not available
+- TURN to be added for reliable internet-facing WebRTC
 
-This keeps CPU, bandwidth, and browser load within practical limits.
+This is the practical strategy for 100-200 concurrent participants.
 
-## Deployment layout
+## TOEFL ITP test model
 
-### Single-server first phase
+The demo package is now aligned to the official TOEFL ITP Level 1 section structure:
 
-- Nginx
-- React static build
-- NestJS API
-- PostgreSQL
-- Redis
-- local media storage for audio, image assets, and proctoring snapshots
+- Listening Comprehension: 50 questions, 35 minutes
+- Structure and Written Expression: 40 questions, 25 minutes
+- Reading Comprehension: 50 questions, 55 minutes
+- Total test time: 115 minutes
 
-This is enough to start, provided the machine has strong SSD performance and adequate RAM.
+Scoring uses ETS-style converted score handling for Level 1 practice usage. This is appropriate for institutional practice and internal reporting, but it is not an official ETS-issued score report.
 
-### Hardening for internet access
+## Repository status after cleanup
 
-- HTTPS only
-- PostgreSQL and Redis bound to private interfaces
-- firewall only exposing `80` and `443`
-- automated backups for PostgreSQL
-- rate limiting on auth and proctoring endpoints
-- structured logs for admin and participant actions
+Legacy runtime dependence on Supabase has been removed from the active application path. The repository should now be treated as:
 
-## Migration path from current repo
+- frontend app in `src/`
+- backend API in `backend/src/`
+- PostgreSQL schema and seed files in `database/postgresql/`
+- local infrastructure helper compose in `infra/`
 
-1. Keep the current React app running during transition.
-2. Replace the mock layer in `src/lib/supabase.ts` with a typed API client.
-3. Move auth to backend-issued tokens and PostgreSQL-backed users.
-4. Move packages, questions, sessions, answers, certificates, and proctoring logs to PostgreSQL.
-5. Replace admin polling with WebSocket subscriptions for live session monitoring.
-6. Add object storage handling for audio assets and proctoring snapshots.
-7. Run load tests before production launch.
+## Next production concerns
 
-## Backend modules
+The next production steps are operational, not architectural:
 
-- `auth`: login, refresh, logout, roles
-- `tests`: packages, sections, questions, assets
-- `sessions`: create session, autosave answers, timer checkpoints, finish exam
-- `proctoring`: event ingestion, snapshot registration, admin monitoring sockets
-- `reports`: scoring summaries, exports, participant result history
-- `health`: infrastructure readiness
-
-## Immediate next implementation steps
-
-1. Create PostgreSQL migration files for the non-Supabase schema.
-2. Implement auth tables and JWT flow in the backend.
-3. Add `apiClient` in the frontend and remove the local `supabase` mock.
-4. Wire participant session creation and admin session listing to the backend.
+1. reverse proxy and public TLS
+2. TURN service for live camera over the internet
+3. deployment automation
+4. monitoring and alerting
+5. backup and restore policy
+6. security hardening and secret rotation

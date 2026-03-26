@@ -71,7 +71,7 @@
 
 @layer components {
   .page-backdrop {
-    @apply min-h-screen relative overflow-hidden;
+    @apply relative min-h-screen overflow-hidden;
   }
 
   .page-backdrop::before,
@@ -81,43 +81,43 @@
   }
 
   .page-backdrop::before {
-    width: 28rem;
-    height: 28rem;
-    top: -8rem;
-    left: -8rem;
-    background: rgba(139, 186, 255, 0.28);
+    width: 20rem;
+    height: 20rem;
+    top: -7rem;
+    left: -7rem;
+    background: rgba(139, 186, 255, 0.24);
   }
 
   .page-backdrop::after {
-    width: 22rem;
-    height: 22rem;
-    right: -5rem;
-    top: 8rem;
-    background: rgba(237, 191, 255, 0.2);
+    width: 16rem;
+    height: 16rem;
+    right: -4rem;
+    top: 7rem;
+    background: rgba(237, 191, 255, 0.18);
   }
 
   .shell-wrap {
-    @apply relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    @apply relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8;
   }
 
   .glass-card {
     background: var(--bg-panel);
     border: 1px solid var(--line-soft);
     box-shadow: var(--shadow-lg);
-    @apply rounded-[30px] backdrop-blur-xl;
+    @apply rounded-[26px] backdrop-blur-xl sm:rounded-[30px];
   }
 
   .glass-card-strong {
     background: var(--bg-panel-strong);
     border: 1px solid var(--line-soft);
     box-shadow: var(--shadow-xl);
-    @apply rounded-[32px];
+    @apply rounded-[28px] sm:rounded-[32px];
   }
 
   .soft-card {
     background: rgba(247, 248, 255, 0.92);
     border: 1px solid rgba(122, 128, 182, 0.12);
-    @apply rounded-[26px];
+    @apply rounded-[22px] sm:rounded-[26px];
   }
 
   .section-title {
@@ -125,13 +125,13 @@
   }
 
   .eyebrow {
-    @apply inline-flex items-center rounded-full px-4 py-2 text-xs font-bold uppercase tracking-[0.24em];
+    @apply inline-flex items-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] sm:text-xs;
     background: rgba(35, 88, 230, 0.1);
     color: var(--blue-deep);
   }
 
   .primary-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white transition-all duration-200;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition-all duration-200 sm:px-6;
     background: linear-gradient(135deg, var(--blue) 0%, #3478ff 100%);
     box-shadow: 0 18px 30px rgba(35, 88, 230, 0.22);
   }
@@ -142,7 +142,7 @@
   }
 
   .secondary-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-all;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all sm:px-6;
     color: var(--ink-strong);
     background: rgba(255, 255, 255, 0.9);
     border: 1px solid var(--line-strong);
@@ -175,7 +175,7 @@
   }
 
   .field-input {
-    @apply w-full rounded-[20px] border px-4 py-3 text-sm transition-all;
+    @apply w-full rounded-[18px] border px-4 py-3 text-sm transition-all sm:rounded-[20px];
     background: rgba(255, 255, 255, 0.96);
     border-color: rgba(119, 123, 179, 0.18);
     color: var(--ink-strong);
@@ -196,7 +196,7 @@
   }
 
   .metric-value {
-    @apply mt-3 text-3xl font-extrabold;
+    @apply mt-3 text-3xl font-extrabold sm:text-4xl;
     color: var(--ink-strong);
   }
 
@@ -209,20 +209,20 @@
   }
 
   .modal-scrim {
-    @apply fixed inset-0 z-50 flex items-center justify-center bg-[#101433]/40 p-4 backdrop-blur-sm;
+    @apply fixed inset-0 z-50 flex items-end justify-center bg-[#101433]/40 p-3 backdrop-blur-sm sm:items-center sm:p-4;
   }
 
   .modal-card {
-    @apply glass-card-strong w-full max-w-2xl p-6 md:p-8;
+    @apply glass-card-strong w-full max-w-2xl p-5 sm:p-6 md:p-8;
   }
 
   .admin-surface {
-    @apply rounded-[22px] border bg-white;
+    @apply rounded-[20px] border bg-white sm:rounded-[22px];
     border-color: rgba(119, 123, 179, 0.12);
   }
 
   .admin-soft-surface {
-    @apply rounded-[20px] border;
+    @apply rounded-[18px] border sm:rounded-[20px];
     background: #f7f8ff;
     border-color: rgba(119, 123, 179, 0.1);
   }
@@ -230,5 +230,23 @@
   .render-lite {
     content-visibility: auto;
     contain-intrinsic-size: 320px;
+  }
+}
+
+@media (min-width: 640px) {
+  .page-backdrop::before {
+    width: 28rem;
+    height: 28rem;
+    top: -8rem;
+    left: -8rem;
+    background: rgba(139, 186, 255, 0.28);
+  }
+
+  .page-backdrop::after {
+    width: 22rem;
+    height: 22rem;
+    right: -5rem;
+    top: 8rem;
+    background: rgba(237, 191, 255, 0.2);
   }
 }

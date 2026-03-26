@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { ImageIcon, Music4, Pencil, Plus, Trash2, UploadCloud } from 'lucide-react';
-import { Question, QuestionOption, TestPackage, TestSection, supabase, uploadMedia } from '../../lib/supabase';
+import { Question, QuestionOption, TestPackage, TestSection, resolveMediaUrl, supabase, uploadMedia } from '../../lib/supabase';
 
 type QuestionWithOptions = Question & {
   options: QuestionOption[];
@@ -89,7 +89,7 @@ export function QuestionBank() {
 
       if (error) throw error;
 
-      const nextSections = data || [];
+      const nextSections = (data || []) as TestSection[];
       setSections(nextSections);
       setSelectedSectionId((prev) => {
         if (prev && nextSections.some((section) => section.id === prev)) return prev;
@@ -213,7 +213,7 @@ export function QuestionBank() {
           <p className="text-sm text-gray-600">Create and maintain question content for every test section.</p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
+        <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px] w-full">
           <label className="text-sm font-medium text-gray-700">
             Package
             <select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)} className="field-input mt-1">
@@ -238,7 +238,7 @@ export function QuestionBank() {
         </div>
       </div>
 
-      <div className="admin-surface p-6">
+      <div className="admin-surface p-4 sm:p-6">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">{currentSection?.title || 'Select a section'}</h3>
@@ -282,7 +282,7 @@ export function QuestionBank() {
                     <p className="text-gray-900">{question.question_text}</p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <button onClick={() => openEditQuestionModal(question)} className="secondary-btn px-4 py-2">
                       <Pencil className="h-4 w-4" />
                       Edit
@@ -458,9 +458,9 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="admin-surface max-h-[95vh] w-full max-w-4xl overflow-y-auto p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-4">
+      <div className="admin-surface max-h-[92vh] w-full max-w-4xl overflow-y-auto p-4 sm:p-6">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="text-xl font-bold text-gray-900">{form.id ? 'Edit Question' : 'New Question'}</h3>
           <button onClick={onClose} className="ghost-btn">Close</button>
         </div>
@@ -524,7 +524,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
 
           <div className="grid gap-5 lg:grid-cols-2">
             <div className="admin-soft-surface p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-semibold text-[color:var(--ink-strong)]">Question Image</div>
                   <div className="text-xs text-[color:var(--ink-soft)]">Upload from local admin device to server storage.</div>
@@ -555,12 +555,12 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
                 placeholder="Image URL will appear here"
               />
               {form.question_image_url && (
-                <img src={form.question_image_url} alt="Question preview" className="mt-4 max-h-48 w-full rounded-[18px] object-cover" />
+                <img src={resolveMediaUrl(form.question_image_url)} alt="Question preview" className="mt-4 max-h-48 w-full rounded-[18px] object-cover" />
               )}
             </div>
 
             <div className="admin-soft-surface p-4">
-              <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-semibold text-[color:var(--ink-strong)]">Question Audio</div>
                   <div className="text-xs text-[color:var(--ink-soft)]">Upload MP3, WAV, or OGG from local admin device.</div>
@@ -590,7 +590,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
                 className="field-input"
                 placeholder="Audio URL will appear here"
               />
-              {form.audio_url && <audio controls src={form.audio_url} className="mt-4 w-full" />}
+              {form.audio_url && <audio controls src={resolveMediaUrl(form.audio_url)} className="mt-4 w-full" />}
             </div>
           </div>
 
@@ -620,7 +620,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row">
             <button type="button" onClick={onClose} className="secondary-btn w-full justify-center">
               Cancel
             </button>
@@ -721,3 +721,5 @@ function getAudioDuration(file: File) {
     audio.src = objectUrl;
   });
 }
+
+

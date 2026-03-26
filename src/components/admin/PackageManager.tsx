@@ -163,7 +163,7 @@ export function PackageManager() {
             setEditingPackage(emptyPackageForm);
             setPackageModalOpen(true);
           }}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+          className="primary-btn w-full sm:w-auto"
         >
           <FolderPlus className="h-4 w-4" />
           Add Package
@@ -199,7 +199,7 @@ export function PackageManager() {
                   </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                   <button
                     onClick={() => void handleToggleActive(pkg)}
                     className="rounded-lg border border-gray-200 p-2 text-gray-600 transition-colors hover:bg-gray-50"
@@ -233,7 +233,7 @@ export function PackageManager() {
                     onClick={() => {
                       void togglePackage(pkg.id);
                     }}
-                    className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-gray-800"
+                    className="secondary-btn col-span-2 sm:col-span-1"
                   >
                     <BookCopy className="h-4 w-4" />
                     Manage Sections
@@ -261,7 +261,7 @@ export function PackageManager() {
                         });
                         setSectionModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+                      className="primary-btn w-full sm:w-auto"
                     >
                       <Plus className="h-4 w-4" />
                       Add Section
@@ -450,7 +450,7 @@ function PackageModal({ initialValues, onClose, onSaved }: PackageModalProps) {
           />
         </label>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row">
           <button
             type="button"
             onClick={onClose}
@@ -584,7 +584,7 @@ function SectionModal({ initialValues, onClose, onSaved }: SectionModalProps) {
           </label>
         </div>
 
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col gap-3 pt-2 sm:flex-row">
           <button
             type="button"
             onClick={onClose}
@@ -613,9 +613,9 @@ type ModalShellProps = {
 
 function ModalShell({ title, onClose, children }: ModalShellProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="admin-surface w-full max-w-xl p-6">
-        <div className="mb-4 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-3 sm:items-center sm:p-4">
+      <div className="admin-surface max-h-[90vh] w-full max-w-xl overflow-y-auto p-4 sm:p-6">
+        <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="text-xl font-bold text-gray-900">{title}</h3>
           <button onClick={onClose} className="text-sm text-gray-500 transition-colors hover:text-gray-700">
             Close
@@ -626,3 +626,4 @@ function ModalShell({ title, onClose, children }: ModalShellProps) {
     </div>
   );
 }
+

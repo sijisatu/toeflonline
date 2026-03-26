@@ -27,3 +27,5 @@ backend/.env
 .env
 .vite-dev.log
 .vite-dev.err.log
+certs/
+tools/

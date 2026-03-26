@@ -137,10 +137,38 @@ type Filter =
   | { type: 'in'; field: string; values: unknown[] }
   | { type: 'gte'; field: string; value: number };
 
-const API_BASE_URL = 'http://127.0.0.1:4000/api';
-const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
+function resolveApiOrigin() {
+  if (typeof window === 'undefined') {
+    return 'http://127.0.0.1:4000';
+  }
+
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname || '127.0.0.1';
+  return `${protocol}//${hostname}:4000`;
+}
+
+export const API_ORIGIN = resolveApiOrigin();
+const API_BASE_URL = `${API_ORIGIN}/api`;
 const SESSION_STORAGE_KEY = 'toefl-api-session';
 const AUTH_EVENT_NAME = 'toefl-api-auth';
+
+export function resolveMediaUrl(url?: string | null) {
+  if (!url) return '';
+
+  if (url.startsWith('/')) {
+    return `${API_ORIGIN}${url}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.pathname.startsWith('/api/media/')) {
+      return `${API_ORIGIN}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+    return url;
+  } catch {
+    return url;
+  }
+}
 
 const authListeners = new Set<(event: string, session: AuthSession | null) => void>();
 
@@ -343,7 +371,7 @@ export async function uploadMedia(input: {
 
   return {
     ...result,
-    url: `${API_ORIGIN}${result.url}`,
+    url: result.url,
   };
 }
 export function resetLocalDemoData() {
