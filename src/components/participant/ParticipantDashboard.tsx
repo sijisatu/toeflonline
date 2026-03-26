@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, TestPackage } from '../../lib/supabase';
-import { LogOut, BookOpen, Award } from 'lucide-react';
+import { ArrowRight, BookOpen, Clock3, LogOut, ShieldCheck, Sparkles } from 'lucide-react';
 
 export function ParticipantDashboard() {
   const { profile, signOut } = useAuth();
@@ -9,7 +9,7 @@ export function ParticipantDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPackages();
+    void fetchPackages();
   }, []);
 
   const fetchPackages = async () => {
@@ -34,74 +34,157 @@ export function ParticipantDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
-      <header className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+    <div className="page-backdrop py-6">
+      <div className="shell-wrap space-y-6">
+        <header className="glass-card px-5 py-5 sm:px-7">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">TOEFL Online Test</h1>
-              <p className="text-sm text-gray-600">Welcome, {profile?.full_name}</p>
+              <span className="eyebrow">Participant Workspace</span>
+              <h1 className="mt-4 text-4xl font-extrabold">The Lucid Scholar</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--ink-soft)] md:text-base">
+                Welcome back, {profile?.full_name}. Choose an active test package and enter a calmer, more focused
+                exam environment.
+              </p>
             </div>
-            <button
-              onClick={() => signOut()}
-              className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              Sign Out
-            </button>
-          </div>
-        </div>
-      </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Available Tests</h2>
-          <p className="text-gray-600">Choose a test package to begin your TOEFL assessment</p>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading tests...</p>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {packages.map((pkg) => (
-              <div
-                key={pkg.id}
-                className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all border border-gray-200 overflow-hidden"
-              >
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
-                  <BookOpen className="w-12 h-12 text-white mb-3" />
-                  <h3 className="text-xl font-bold text-white mb-2">{pkg.title}</h3>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="soft-card flex items-center gap-3 px-4 py-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color:var(--blue-soft)] text-[color:var(--blue-deep)]">
+                  <Sparkles className="h-5 w-5" />
                 </div>
-                <div className="p-6">
-                  {pkg.description && (
-                    <p className="text-gray-600 mb-4 line-clamp-3">{pkg.description}</p>
-                  )}
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-                    <Award className="w-4 h-4" />
-                    <span>Duration: {pkg.duration_minutes} minutes</span>
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">Mode</div>
+                  <div className="text-sm font-semibold text-[color:var(--ink-strong)]">Exam Ready</div>
+                </div>
+              </div>
+
+              <button onClick={() => signOut()} className="secondary-btn">
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="glass-card overflow-hidden p-6 sm:p-8">
+            <div className="grid gap-5 md:grid-cols-3">
+              <div className="metric-card">
+                <div className="metric-label">Active Packages</div>
+                <div className="metric-value">{packages.length}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Monitoring</div>
+                <div className="mt-3 flex items-center gap-2 text-lg font-bold text-[color:var(--ink-strong)]">
+                  <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                  Enabled
+                </div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Exam Style</div>
+                <div className="mt-3 text-lg font-bold text-[color:var(--ink-strong)]">TOEFL ITP</div>
+              </div>
+            </div>
+
+            <div className="mt-8 rounded-[28px] bg-gradient-to-r from-[#eaf0ff] to-[#f7f3ff] p-6">
+              <div className="text-sm font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">
+                Before You Start
+              </div>
+              <div className="mt-4 grid gap-3 text-sm leading-7 text-[color:var(--ink-main)] md:grid-cols-2">
+                <div className="rounded-[22px] bg-white/80 px-4 py-4">Keep camera and microphone enabled for the whole session.</div>
+                <div className="rounded-[22px] bg-white/80 px-4 py-4">Avoid tab switching and keep a stable browser window.</div>
+                <div className="rounded-[22px] bg-white/80 px-4 py-4">Read the section instructions before starting audio-based items.</div>
+                <div className="rounded-[22px] bg-white/80 px-4 py-4">Use the soft navigation view to track answered and flagged questions.</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-6 sm:p-8">
+            <div className="eyebrow">Experience Note</div>
+            <h2 className="mt-5 text-3xl font-extrabold">A softer interface for a long exam.</h2>
+            <p className="mt-4 text-sm leading-7 text-[color:var(--ink-soft)]">
+              The participant side now leans into rounded surfaces, softer contrast, and clearer hierarchy so the test
+              feels intentional instead of generic.
+            </p>
+            <div className="mt-6 rounded-[26px] bg-[linear-gradient(135deg,#2457e7,#14389a)] p-6 text-white shadow-[0_18px_40px_rgba(26,57,157,0.28)]">
+              <div className="text-xs font-bold uppercase tracking-[0.24em] text-white/72">Focus Pattern</div>
+              <div className="mt-3 text-2xl font-extrabold leading-tight">Navigate, listen, answer, review.</div>
+              <p className="mt-4 text-sm leading-7 text-white/84">
+                Each screen is being shaped around those four actions so the exam has rhythm.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="glass-card p-6 sm:p-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <span className="eyebrow">Available Tests</span>
+              <h2 className="mt-4 text-3xl font-extrabold">Choose your next session</h2>
+              <p className="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">
+                Active packages are surfaced below with clearer timing and actions.
+              </p>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="py-16 text-center">
+              <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-[#d7e1ff] border-t-[color:var(--blue)]" />
+              <p className="mt-4 text-sm text-[color:var(--ink-soft)]">Loading active packages...</p>
+            </div>
+          ) : (
+            <div className="mt-8 grid gap-5 xl:grid-cols-2">
+              {packages.map((pkg, index) => (
+                <article
+                  key={pkg.id}
+                  className="glass-card-strong overflow-hidden p-6 transition-transform duration-200 hover:-translate-y-1"
+                >
+                  <div className="flex flex-col gap-5 md:flex-row md:justify-between">
+                    <div className="max-w-xl">
+                      <div className="inline-flex rounded-full bg-[color:var(--blue-soft)] px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--blue-deep)]">
+                        Package {String(index + 1).padStart(2, '0')}
+                      </div>
+                      <h3 className="mt-4 text-2xl font-extrabold">{pkg.title}</h3>
+                      <p className="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">
+                        {pkg.description || 'Full practice package with multi-section TOEFL flow and timed monitoring.'}
+                      </p>
+                    </div>
+
+                    <div className="soft-card min-w-[180px] self-start p-4">
+                      <div className="flex items-center gap-3 text-sm font-semibold text-[color:var(--ink-strong)]">
+                        <Clock3 className="h-4 w-4 text-[color:var(--blue-deep)]" />
+                        {pkg.duration_minutes} minutes
+                      </div>
+                      <div className="mt-2 flex items-center gap-3 text-sm font-semibold text-[color:var(--ink-strong)]">
+                        <BookOpen className="h-4 w-4 text-[color:var(--blue-deep)]" />
+                        Proctored session
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => startTest(pkg.id)}
-                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                  >
-                    Start Test
-                  </button>
-                </div>
-              </div>
-            ))}
 
-            {packages.length === 0 && (
-              <div className="col-span-full text-center py-12 bg-white rounded-lg border border-gray-200">
-                <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No tests available at the moment</p>
-              </div>
-            )}
-          </div>
-        )}
-      </main>
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-sm text-[color:var(--ink-soft)]">Participant monitoring is enabled for this package.</div>
+                    <button onClick={() => startTest(pkg.id)} className="primary-btn">
+                      Start Test
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </article>
+              ))}
+
+              {packages.length === 0 && (
+                <div className="glass-card-strong col-span-full p-12 text-center">
+                  <BookOpen className="mx-auto h-16 w-16 text-[#9aa7d5]" />
+                  <h3 className="mt-5 text-2xl font-extrabold">No active tests yet</h3>
+                  <p className="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">
+                    Ask the admin to activate at least one package before participants begin.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

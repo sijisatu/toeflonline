@@ -14,6 +14,22 @@ type WidgetPosition = {
 const SNAPSHOT_INTERVAL_MS = 20000;
 const WIDGET_WIDTH = 272;
 const WIDGET_HEIGHT = 236;
+const SNAPSHOT_WIDTH = 224;
+const SNAPSHOT_HEIGHT = 126;
+const INITIAL_SNAPSHOT_DELAY_MS = 3500;
+
+function runWhenIdle(task: () => void) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    const idleWindow = window as Window & {
+      requestIdleCallback: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
+    };
+
+    idleWindow.requestIdleCallback(() => task(), { timeout: 1200 });
+    return;
+  }
+
+  window.setTimeout(task, 0);
+}
 
 export function ProctoringMonitor({ sessionId }: ProctoringMonitorProps) {
   const [cameraEnabled, setCameraEnabled] = useState(false);
@@ -26,6 +42,8 @@ export function ProctoringMonitor({ sessionId }: ProctoringMonitorProps) {
   const dragOffsetRef = useRef<WidgetPosition>({ x: 0, y: 0 });
   const snapshotIntervalRef = useRef<number | null>(null);
   const mediaStateRef = useRef({ cameraEnabled: false, micEnabled: false });
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const snapshotInFlightRef = useRef(false);
 
   useEffect(() => {
     setPosition({
@@ -126,10 +144,16 @@ export function ProctoringMonitor({ sessionId }: ProctoringMonitorProps) {
       });
 
       snapshotIntervalRef.current = window.setInterval(() => {
-        void uploadSnapshot();
+        runWhenIdle(() => {
+          void uploadSnapshot();
+        });
       }, SNAPSHOT_INTERVAL_MS);
 
-      void uploadSnapshot();
+      window.setTimeout(() => {
+        runWhenIdle(() => {
+          void uploadSnapshot();
+        });
+      }, INITIAL_SNAPSHOT_DELAY_MS);
     } catch (error) {
       console.error('Error initializing proctoring:', error);
       void logProctoringEvent('camera_blocked');
@@ -138,22 +162,51 @@ export function ProctoringMonitor({ sessionId }: ProctoringMonitorProps) {
   };
 
   const uploadSnapshot = async () => {
-    if (!videoRef.current || !mediaStateRef.current.cameraEnabled) return;
-    if (videoRef.current.readyState < 2) return;
+    if (!videoRef.current || !mediaStateRef.current.cameraEnabled || snapshotInFlightRef.current) return;
+    if (videoRef.current.readyState < 2 || videoRef.current.videoWidth === 0 || videoRef.current.videoHeight === 0) return;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 320;
-    canvas.height = videoRef.current.videoHeight || 240;
+    snapshotInFlightRef.current = true;
+
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvasRef.current = canvas;
+    canvas.width = SNAPSHOT_WIDTH;
+    canvas.height = SNAPSHOT_HEIGHT;
     const context = canvas.getContext('2d');
-    if (!context) return;
+    if (!context) {
+      snapshotInFlightRef.current = false;
+      return;
+    }
 
-    context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    const imageData = canvas.toDataURL('image/jpeg', 0.45);
+    try {
+      context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      const imageData = await new Promise<string | null>((resolve) => {
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve(null);
+              return;
+            }
 
-    await logProctoringEvent('snapshot_uploaded', {
-      imageData,
-      capturedAt: new Date().toISOString(),
-    });
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+            reader.readAsDataURL(blob);
+          },
+          'image/jpeg',
+          0.28,
+        );
+      });
+
+      if (!imageData) {
+        return;
+      }
+
+      await logProctoringEvent('snapshot_uploaded', {
+        imageData,
+        capturedAt: new Date().toISOString(),
+      });
+    } finally {
+      snapshotInFlightRef.current = false;
+    }
   };
 
   const logProctoringEvent = async (
@@ -192,24 +245,28 @@ export function ProctoringMonitor({ sessionId }: ProctoringMonitorProps) {
   return (
     <>
       <div className="fixed z-50 select-none" style={{ left: position.x, top: position.y }}>
-        <div className="w-64 rounded-xl border border-gray-200 bg-white shadow-xl">
+        <div className="w-56 rounded-[20px] border border-[rgba(119,123,179,0.14)] bg-white shadow-[0_10px_18px_rgba(71,80,140,0.08)]">
           <div
             onPointerDown={handleDragStart}
-            className="flex cursor-grab items-center justify-between rounded-t-xl border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-600 active:cursor-grabbing"
+            className="flex cursor-grab items-center justify-between rounded-t-[20px] border-b border-[rgba(119,123,179,0.12)] bg-[#f7f8ff] px-3 py-2 text-xs font-semibold text-[color:var(--ink-soft)] active:cursor-grabbing"
           >
             <span>Proctoring Monitor</span>
             <Move className="h-4 w-4" />
           </div>
 
           <div className="p-3">
-            <div className="relative mb-2 h-40 overflow-hidden rounded-lg bg-gray-900">
+            <div className="relative mb-2 h-32 overflow-hidden rounded-[16px] bg-gray-900">
               <video
                 ref={videoRef}
                 autoPlay
                 muted
                 playsInline
                 onLoadedData={() => {
-                  void uploadSnapshot();
+                  window.setTimeout(() => {
+                    runWhenIdle(() => {
+                      void uploadSnapshot();
+                    });
+                  }, 500);
                 }}
                 className="h-full w-full object-cover"
               />
@@ -235,8 +292,8 @@ export function ProctoringMonitor({ sessionId }: ProctoringMonitorProps) {
       </div>
 
       {showWarning && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 animate-bounce">
-          <div className="bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3">
+        <div className="fixed left-1/2 top-20 z-50 -translate-x-1/2 transform">
+          <div className="flex items-center gap-3 rounded-full bg-yellow-500 px-6 py-3 text-white shadow-[0_12px_24px_rgba(191,135,0,0.2)]">
             <AlertCircle className="w-5 h-5" />
             <span className="font-medium">Warning: Tab switching detected!</span>
           </div>

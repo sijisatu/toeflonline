@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, Certificate } from '../../lib/supabase';
-import { Award, CheckCircle, Home } from 'lucide-react';
+import { ArrowLeft, Award, CheckCircle2, Headphones, Library, ScrollText } from 'lucide-react';
 
 export function TestResults() {
   const { profile } = useAuth();
@@ -9,7 +9,7 @@ export function TestResults() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLatestCertificate();
+    void fetchLatestCertificate();
   }, []);
 
   const fetchLatestCertificate = async () => {
@@ -35,10 +35,10 @@ export function TestResults() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading results...</p>
+      <div className="page-backdrop flex items-center justify-center px-4">
+        <div className="glass-card-strong w-full max-w-md p-10 text-center">
+          <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-[#d7e1ff] border-t-[color:var(--blue)]" />
+          <p className="mt-6 text-sm text-[color:var(--ink-soft)]">Preparing your certificate...</p>
         </div>
       </div>
     );
@@ -46,14 +46,14 @@ export function TestResults() {
 
   if (!certificate) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">No test results found.</p>
-          <button
-            onClick={() => (window.location.href = '/')}
-            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to Dashboard
+      <div className="page-backdrop flex items-center justify-center px-4">
+        <div className="glass-card-strong max-w-lg p-10 text-center">
+          <h2 className="text-3xl font-extrabold">No results found</h2>
+          <p className="mt-4 text-sm leading-7 text-[color:var(--ink-soft)]">
+            This account does not have a generated certificate yet.
+          </p>
+          <button onClick={() => (window.location.href = '/')} className="primary-btn mt-8">
+            Back to Dashboard
           </button>
         </div>
       </div>
@@ -61,61 +61,73 @@ export function TestResults() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full bg-white rounded-xl shadow-lg p-8">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Test Completed!</h1>
-          <p className="text-gray-600">Here are your results</p>
-        </div>
-
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-8 text-white mb-6">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Award className="w-8 h-8" />
-            <h2 className="text-2xl font-bold">TOEFL ITP Score</h2>
-          </div>
-          <div className="text-center">
-            <div className="text-6xl font-bold mb-2">{certificate.total_score}</div>
-            <div className="text-blue-100">Total Score</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-900 mb-1">
-              {certificate.listening_score}
-            </div>
-            <div className="text-sm text-gray-600">Listening</div>
-          </div>
-          <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-900 mb-1">
-              {certificate.structure_score}
-            </div>
-            <div className="text-sm text-gray-600">Structure</div>
-          </div>
-          <div className="bg-blue-50 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-900 mb-1">
-              {certificate.reading_score}
-            </div>
-            <div className="text-sm text-gray-600">Reading</div>
-          </div>
-        </div>
-
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <p className="text-sm text-gray-700 text-center">
-            This is a practice test certificate. Scores are for reference only and not for official use.
-          </p>
-        </div>
-
-        <button
-          onClick={() => (window.location.href = '/')}
-          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-        >
-          <Home className="w-5 h-5" />
+    <div className="page-backdrop py-8">
+      <div className="shell-wrap space-y-6">
+        <button onClick={() => (window.location.href = '/')} className="secondary-btn">
+          <ArrowLeft className="h-4 w-4" />
           Back to Dashboard
         </button>
+
+        <section className="glass-card-strong overflow-hidden p-6 sm:p-8 lg:p-10">
+          <div className="grid gap-8 xl:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <span className="eyebrow">Result Summary</span>
+              <div className="mt-5 flex items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-[#def8ea] text-[#16955e]">
+                  <CheckCircle2 className="h-9 w-9" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-extrabold">Test Completed</h1>
+                  <p className="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">
+                    Your latest TOEFL ITP practice result has been recorded.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-8 rounded-[34px] bg-[linear-gradient(135deg,#2457e7,#1738a2)] p-8 text-white shadow-[0_24px_46px_rgba(23,56,162,0.3)]">
+                <div className="flex items-center gap-3">
+                  <Award className="h-7 w-7" />
+                  <div className="text-xl font-extrabold">TOEFL ITP Score</div>
+                </div>
+                <div className="mt-8 text-7xl font-extrabold leading-none">{certificate.total_score}</div>
+                <div className="mt-3 text-sm uppercase tracking-[0.26em] text-white/72">Total Score</div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <ScoreCard icon={<Headphones className="h-5 w-5" />} label="Listening" value={certificate.listening_score} />
+              <ScoreCard icon={<Library className="h-5 w-5" />} label="Structure" value={certificate.structure_score} />
+              <ScoreCard icon={<ScrollText className="h-5 w-5" />} label="Reading" value={certificate.reading_score} />
+
+              <div className="rounded-[28px] bg-[#fff3d7] p-5 text-sm leading-7 text-[color:var(--ink-main)]">
+                This is a practice certificate for internal evaluation. It should not be treated as an official TOEFL
+                score report.
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function ScoreCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="glass-card flex items-center gap-4 p-5">
+      <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-[color:var(--blue-soft)] text-[color:var(--blue-deep)]">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <div className="text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">{label}</div>
+        <div className="mt-2 text-3xl font-extrabold text-[color:var(--ink-strong)]">{value}</div>
       </div>
     </div>
   );

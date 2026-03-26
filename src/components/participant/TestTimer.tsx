@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Clock } from 'lucide-react';
+import { Clock3 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 type TestTimerProps = {
@@ -27,11 +27,7 @@ export function TestTimer({ initialSeconds, onTimeUp, sessionId }: TestTimerProp
         }
 
         if (newValue % 30 === 0) {
-          supabase
-            .from('test_sessions')
-            .update({ time_remaining_seconds: newValue })
-            .eq('id', sessionId)
-            .then();
+          supabase.from('test_sessions').update({ time_remaining_seconds: newValue }).eq('id', sessionId).then();
         }
 
         return newValue;
@@ -44,19 +40,16 @@ export function TestTimer({ initialSeconds, onTimeUp, sessionId }: TestTimerProp
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
-
   const isLowTime = seconds < 300;
 
   return (
     <div
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-mono text-lg font-semibold ${
-        isLowTime
-          ? 'bg-red-100 text-red-700 animate-pulse'
-          : 'bg-blue-50 text-blue-700'
+      className={`inline-flex items-center gap-3 rounded-full px-5 py-3 text-base font-extrabold shadow-[0_16px_28px_rgba(80,89,151,0.14)] ${
+        isLowTime ? 'bg-[#ffe3ea] text-[#ba345b]' : 'bg-[#ffecc7] text-[#8f5a00]'
       }`}
     >
-      <Clock className="w-5 h-5" />
-      <span>
+      <Clock3 className="h-5 w-5" />
+      <span className="font-['Manrope'] tracking-[0.02em]">
         {hours > 0 && `${hours}:`}
         {minutes.toString().padStart(2, '0')}:{secs.toString().padStart(2, '0')}
       </span>

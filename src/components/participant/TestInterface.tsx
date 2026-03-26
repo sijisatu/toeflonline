@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { startTransition, useEffect, useState, useRef } from 'react';
 import { calculateScore, supabase, TestSection, Question, QuestionOption } from '../../lib/supabase';
 import { TestNavigation } from './TestNavigation';
 import { TestTimer } from './TestTimer';
 import { QuestionDisplay } from './QuestionDisplay';
 import { ProctoringMonitor } from './ProctoringMonitor';
-import { Flag, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Flag } from 'lucide-react';
 
 type TestInterfaceProps = {
   packageId: string;
@@ -37,57 +37,79 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
 
   const fetchTestData = async () => {
     try {
-      const { data: sectionsData, error: sectionsError } = await supabase
-        .from('test_sections')
-        .select('*')
-        .eq('package_id', packageId)
-        .order('section_order');
+      const [sectionsResult, sessionResult, answersResult] = await Promise.all([
+        supabase.from('test_sections').select('*').eq('package_id', packageId).order('section_order'),
+        supabase
+          .from('test_sessions')
+          .select('time_remaining_seconds, current_section_id, current_question_number')
+          .eq('id', sessionId)
+          .single(),
+        supabase.from('user_answers').select('question_id, selected_answer, is_flagged').eq('session_id', sessionId),
+      ]);
+
+      const { data: sectionsData, error: sectionsError } = sectionsResult;
 
       if (sectionsError) throw sectionsError;
 
-      const sectionsWithQuestions = await Promise.all(
-        (sectionsData || []).map(async (section: TestSection) => {
-          const { data: questions, error: questionsError } = await supabase
-            .from('questions')
+      const rawSections = (sectionsData || []) as TestSection[];
+      const sectionIds = rawSections.map((section) => section.id);
+
+      let questionsBySection = new Map<string, QuestionWithOptions[]>();
+
+      if (sectionIds.length > 0) {
+        const { data: questionsData, error: questionsError } = await supabase
+          .from('questions')
+          .select('*')
+          .in('section_id', sectionIds)
+          .order('question_number');
+
+        if (questionsError) throw questionsError;
+
+        const rawQuestions = (questionsData || []) as Question[];
+        const questionIds = rawQuestions.map((question) => question.id);
+
+        let optionsByQuestion = new Map<string, QuestionOption[]>();
+
+        if (questionIds.length > 0) {
+          const { data: optionsData, error: optionsError } = await supabase
+            .from('question_options')
             .select('*')
-            .eq('section_id', section.id)
-            .order('question_number');
+            .in('question_id', questionIds)
+            .order('option_label');
 
-          if (questionsError) throw questionsError;
+          if (optionsError) throw optionsError;
 
-          const questionsWithOptions = await Promise.all(
-            (questions || []).map(async (question: Question) => {
-              const { data: options, error: optionsError } = await supabase
-                .from('question_options')
-                .select('*')
-                .eq('question_id', question.id)
-                .order('option_label');
+          for (const option of (optionsData || []) as QuestionOption[]) {
+            const current = optionsByQuestion.get(option.question_id) || [];
+            current.push(option);
+            optionsByQuestion.set(option.question_id, current);
+          }
+        }
 
-              if (optionsError) throw optionsError;
+        for (const question of rawQuestions) {
+          const current = questionsBySection.get(question.section_id) || [];
+          current.push({
+            ...question,
+            options: optionsByQuestion.get(question.id) || [],
+          });
+          questionsBySection.set(question.section_id, current);
+        }
+      }
 
-              return { ...question, options: options || [] };
-            })
-          );
-
-          return { ...section, questions: questionsWithOptions };
-        })
-      );
+      const sectionsWithQuestions = rawSections.map((section) => ({
+        ...section,
+        questions: questionsBySection.get(section.id) || [],
+      }));
 
       setSections(sectionsWithQuestions);
 
-      const { data: sessionData } = await supabase
-        .from('test_sessions')
-        .select('time_remaining_seconds, current_section_id, current_question_number')
-        .eq('id', sessionId)
-        .single();
+      const { data: sessionData } = sessionResult;
 
       if (sessionData) {
         setTimeRemaining(sessionData.time_remaining_seconds);
 
         if (sessionData.current_section_id) {
-          const sectionIndex = sectionsWithQuestions.findIndex(
-            (section) => section.id === sessionData.current_section_id
-          );
+          const sectionIndex = sectionsWithQuestions.findIndex((section) => section.id === sessionData.current_section_id);
 
           if (sectionIndex >= 0) {
             setCurrentSectionIndex(sectionIndex);
@@ -96,10 +118,7 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
         }
       }
 
-      const { data: existingAnswers } = await supabase
-        .from('user_answers')
-        .select('question_id, selected_answer, is_flagged')
-        .eq('session_id', sessionId);
+      const { data: existingAnswers } = answersResult;
 
       if (existingAnswers) {
         const answersMap: Record<string, string> = {};
@@ -127,6 +146,8 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   const currentSection = sections[currentSectionIndex];
   const currentQuestion = currentSection?.questions[currentQuestionIndex];
   const totalQuestions = sections.reduce((sum, section) => sum + section.questions.length, 0);
+  const completedQuestions = Object.keys(answers).length;
+  const progressPercent = totalQuestions === 0 ? 0 : Math.round((completedQuestions / totalQuestions) * 100);
 
   const handleAnswer = async (answer: string) => {
     if (!currentQuestion) return;
@@ -134,7 +155,9 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
     const timeSpent = Math.floor((Date.now() - startTimeRef.current) / 1000);
     startTimeRef.current = Date.now();
 
-    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: answer }));
+    startTransition(() => {
+      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: answer }));
+    });
 
     try {
       const { error } = await supabase
@@ -157,7 +180,9 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
     if (!currentQuestion) return;
 
     const newFlaggedState = !flagged[currentQuestion.id];
-    setFlagged((prev) => ({ ...prev, [currentQuestion.id]: newFlaggedState }));
+    startTransition(() => {
+      setFlagged((prev) => ({ ...prev, [currentQuestion.id]: newFlaggedState }));
+    });
 
     try {
       const { error } = await supabase
@@ -177,8 +202,10 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   };
 
   const navigateToQuestion = (sectionIndex: number, questionIndex: number) => {
-    setCurrentSectionIndex(sectionIndex);
-    setCurrentQuestionIndex(questionIndex);
+    startTransition(() => {
+      setCurrentSectionIndex(sectionIndex);
+      setCurrentQuestionIndex(questionIndex);
+    });
     startTimeRef.current = Date.now();
 
     const nextSection = sections[sectionIndex];
@@ -220,12 +247,35 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
     }
   };
 
+  const handlePrevious = () => {
+    navigateToQuestion(
+      currentQuestionIndex > 0 ? currentSectionIndex : Math.max(currentSectionIndex - 1, 0),
+      currentQuestionIndex > 0
+        ? currentQuestionIndex - 1
+        : Math.max((sections[currentSectionIndex - 1]?.questions.length || 1) - 1, 0)
+    );
+  };
+
+  const handleNext = () => {
+    const isLastQuestionInSection = currentQuestionIndex === currentSection.questions.length - 1;
+    const isLastSection = currentSectionIndex === sections.length - 1;
+
+    if (isLastQuestionInSection) {
+      if (!isLastSection) {
+        navigateToQuestion(currentSectionIndex + 1, 0);
+      }
+      return;
+    }
+
+    navigateToQuestion(currentSectionIndex, currentQuestionIndex + 1);
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading test...</p>
+      <div className="min-h-screen bg-[#f3f6ff] flex items-center justify-center px-4">
+        <div className="glass-card-strong w-full max-w-md p-10 text-center">
+          <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-[#d7e1ff] border-t-[color:var(--blue)]" />
+          <p className="mt-6 text-sm text-[color:var(--ink-soft)]">Loading test sections and saved answers...</p>
         </div>
       </div>
     );
@@ -233,16 +283,13 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
 
   if (sections.length === 0 || !currentQuestion) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-lg rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-          <h2 className="text-2xl font-bold text-gray-900">Test content not available</h2>
-          <p className="mt-3 text-gray-600">
+      <div className="min-h-screen bg-[#f3f6ff] flex items-center justify-center p-4">
+        <div className="glass-card-strong max-w-xl p-10 text-center">
+          <h2 className="text-3xl font-extrabold">Test content not available</h2>
+          <p className="mt-4 text-sm leading-7 text-[color:var(--ink-soft)]">
             This package does not have complete sections or questions yet. Please contact the admin.
           </p>
-          <button
-            onClick={() => (window.location.href = '/')}
-            className="mt-6 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
-          >
+          <button onClick={() => (window.location.href = '/')} className="primary-btn mt-8">
             Back to Dashboard
           </button>
         </div>
@@ -251,108 +298,47 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f3f6ff] pb-24 pt-4">
       <ProctoringMonitor sessionId={sessionId} />
 
-      <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">TOEFL ITP Prediction</h1>
-              <p className="text-sm text-gray-600">
-                {currentSection?.title} - Soal {currentQuestionIndex + 1} of {currentSection?.questions.length}
-              </p>
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 space-y-5">
+        <header className="sticky top-0 z-20 rounded-[24px] border border-[rgba(119,123,179,0.14)] bg-white px-5 py-5 shadow-[0_10px_22px_rgba(71,80,140,0.08)]">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-4xl font-extrabold">The Lucid Scholar</h1>
+                <span className="status-pill bg-[color:var(--blue-soft)] text-[color:var(--blue-deep)]">
+                  {currentSection?.title}
+                </span>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-3 text-sm font-semibold text-[color:var(--ink-soft)]">
+                <span>
+                  Question {currentQuestion.question_number} of {totalQuestions}
+                </span>
+                <span className="text-[rgba(107,118,149,0.5)]">•</span>
+                <span>{completedQuestions} answered</span>
+                <span className="text-[rgba(107,118,149,0.5)]">•</span>
+                <span>{progressPercent}% complete</span>
+              </div>
+              <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/70">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#2358e6,#5a90ff)] transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-4">
-              <TestTimer
-                initialSeconds={timeRemaining}
-                onTimeUp={() => setShowFinishModal(true)}
-                sessionId={sessionId}
-              />
-              <button
-                onClick={() => setShowFinishModal(true)}
-                className="px-6 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors font-medium"
-              >
+
+            <div className="flex flex-wrap items-center gap-3">
+              <TestTimer initialSeconds={timeRemaining} onTimeUp={() => setShowFinishModal(true)} sessionId={sessionId} />
+              <button onClick={() => setShowFinishModal(true)} className="primary-btn bg-[linear-gradient(135deg,#e5a600,#cf8200)] shadow-[0_18px_30px_rgba(207,130,0,0.22)]">
                 Selesai
               </button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {currentSection?.title}
-                </h2>
-                <button
-                  onClick={handleFlag}
-                  className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-colors ${
-                    flagged[currentQuestion?.id]
-                      ? 'bg-red-100 text-red-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  <Flag className="w-4 h-4" />
-                  Ragu
-                </button>
-              </div>
-
-              {currentQuestion && (
-                <QuestionDisplay
-                  question={currentQuestion}
-                  selectedAnswer={answers[currentQuestion.id]}
-                  onSelectAnswer={handleAnswer}
-                />
-              )}
-
-              <div className="mt-6 flex flex-col gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:justify-between">
-                <button
-                  onClick={() =>
-                    navigateToQuestion(
-                      currentQuestionIndex > 0 ? currentSectionIndex : Math.max(currentSectionIndex - 1, 0),
-                      currentQuestionIndex > 0
-                        ? currentQuestionIndex - 1
-                        : Math.max((sections[currentSectionIndex - 1]?.questions.length || 1) - 1, 0)
-                    )
-                  }
-                  disabled={currentSectionIndex === 0 && currentQuestionIndex === 0}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Previous
-                </button>
-
-                <button
-                  onClick={() => {
-                    const isLastQuestionInSection =
-                      currentQuestionIndex === currentSection.questions.length - 1;
-                    const isLastSection = currentSectionIndex === sections.length - 1;
-
-                    if (isLastQuestionInSection) {
-                      if (!isLastSection) {
-                        navigateToQuestion(currentSectionIndex + 1, 0);
-                      }
-                      return;
-                    }
-
-                    navigateToQuestion(currentSectionIndex, currentQuestionIndex + 1);
-                  }}
-                  disabled={
-                    currentSectionIndex === sections.length - 1 &&
-                    currentQuestionIndex === currentSection.questions.length - 1
-                  }
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-1">
+        <div className="grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+          <div className="order-2 xl:order-1">
             <TestNavigation
               sections={sections}
               currentSectionIndex={currentSectionIndex}
@@ -362,34 +348,96 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
               onNavigate={navigateToQuestion}
             />
           </div>
+
+          <main className="order-1 xl:order-2">
+            <div className="rounded-[28px] border border-[rgba(119,123,179,0.14)] bg-white p-5 shadow-[0_12px_28px_rgba(71,80,140,0.08)] sm:p-6 lg:p-8">
+              <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div className="eyebrow">Section {currentSectionIndex + 1}</div>
+                  <h2 className="mt-4 text-3xl font-extrabold">{currentSection.title}</h2>
+                  <p className="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">
+                    Move through the section with the navigation panel and use flagging when you need review.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleFlag}
+                  className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all ${
+                    flagged[currentQuestion.id]
+                      ? 'bg-[#fff0d7] text-[#9a6204] shadow-[0_14px_24px_rgba(169,103,0,0.14)]'
+                      : 'bg-white text-[color:var(--ink-main)] border border-[rgba(119,123,179,0.18)]'
+                  }`}
+                >
+                  <Flag className="h-4 w-4" />
+                  {flagged[currentQuestion.id] ? 'Flagged for review' : 'Flag question'}
+                </button>
+              </div>
+
+              <QuestionDisplay
+                question={currentQuestion}
+                selectedAnswer={answers[currentQuestion.id]}
+                onSelectAnswer={handleAnswer}
+              />
+            </div>
+          </main>
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 z-20 mt-6 border-t border-[rgba(119,123,179,0.12)] bg-white px-4 py-4 shadow-[0_-8px_20px_rgba(71,80,140,0.06)]">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <button
+            onClick={handlePrevious}
+            disabled={currentSectionIndex === 0 && currentQuestionIndex === 0}
+            className="secondary-btn disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Previous
+          </button>
+
+          <div className="text-center text-sm font-semibold text-[color:var(--ink-soft)]">
+            Change the answer anytime before you finish the session.
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={currentSectionIndex === sections.length - 1 && currentQuestionIndex === currentSection.questions.length - 1}
+            className="primary-btn disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Next
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
       {showFinishModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h3 className="text-xl font-bold text-gray-900">Finish Test?</h3>
+        <div className="modal-scrim">
+          <div className="modal-card max-w-lg">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#fff0d7] text-[#a96700]">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-extrabold">Finish Test?</h3>
+                <p className="mt-1 text-sm text-[color:var(--ink-soft)]">
+                  You have answered {completedQuestions} out of {totalQuestions} questions.
+                </p>
+              </div>
             </div>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to finish the test? You have answered{' '}
-              {Object.keys(answers).length} out of {totalQuestions} questions.
-            </p>
-            <div className="flex gap-3">
+
+            <div className="mt-6 rounded-[24px] bg-[#f8f8ff] p-4 text-sm leading-7 text-[color:var(--ink-main)]">
+              Finishing will submit the current session, calculate the score, and take you to the result screen.
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => setShowFinishModal(false)}
                 disabled={finishing}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="secondary-btn w-full disabled:opacity-50"
               >
                 Cancel
               </button>
-              <button
-                onClick={() => void handleFinish()}
-                disabled={finishing}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-gray-400"
-              >
-                {finishing ? 'Finishing...' : 'Finish'}
+              <button onClick={() => void handleFinish()} disabled={finishing} className="primary-btn w-full disabled:opacity-50">
+                {finishing ? 'Finishing...' : 'Finish Now'}
               </button>
             </div>
           </div>
@@ -398,3 +446,4 @@ export function TestInterface({ packageId, sessionId }: TestInterfaceProps) {
     </div>
   );
 }
+

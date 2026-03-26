@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { ImageIcon, Music4, Pencil, Plus, Trash2 } from 'lucide-react';
-import { Question, QuestionOption, TestPackage, TestSection, supabase } from '../../lib/supabase';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ImageIcon, Music4, Pencil, Plus, Trash2, UploadCloud } from 'lucide-react';
+import { Question, QuestionOption, TestPackage, TestSection, supabase, uploadMedia } from '../../lib/supabase';
 
 type QuestionWithOptions = Question & {
   options: QuestionOption[];
@@ -57,18 +57,14 @@ export function QuestionBank() {
 
   const currentSection = useMemo(
     () => sections.find((section) => section.id === selectedSectionId) || null,
-    [sections, selectedSectionId]
+    [sections, selectedSectionId],
   );
 
   const fetchPackages = async () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from('test_packages')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+      const { data, error } = await supabase.from('test_packages').select('*').order('created_at', { ascending: false });
       if (error) throw error;
 
       setPackages(data || []);
@@ -117,24 +113,32 @@ export function QuestionBank() {
 
       if (questionError) throw questionError;
 
-      const nextQuestions = await Promise.all(
-        (questionRows || []).map(async (question) => {
-          const { data: optionRows, error: optionError } = await supabase
-            .from('question_options')
-            .select('*')
-            .eq('question_id', question.id)
-            .order('option_label');
+      const rawQuestions = (questionRows || []) as Question[];
+      const questionIds = rawQuestions.map((question) => question.id);
+      const optionMap = new Map<string, QuestionOption[]>();
 
-          if (optionError) throw optionError;
+      if (questionIds.length > 0) {
+        const { data: optionRows, error: optionError } = await supabase
+          .from('question_options')
+          .select('*')
+          .in('question_id', questionIds)
+          .order('option_label');
 
-          return {
-            ...question,
-            options: optionRows || [],
-          };
-        })
+        if (optionError) throw optionError;
+
+        for (const option of (optionRows || []) as QuestionOption[]) {
+          const current = optionMap.get(option.question_id) || [];
+          current.push(option);
+          optionMap.set(option.question_id, current);
+        }
+      }
+
+      setQuestions(
+        rawQuestions.map((question) => ({
+          ...question,
+          options: optionMap.get(question.id) || [],
+        })),
       );
-
-      setQuestions(nextQuestions);
     } catch (error) {
       console.error('Error fetching questions:', error);
       alert('Failed to load questions.');
@@ -151,17 +155,11 @@ export function QuestionBank() {
     audio_url: '',
     audio_duration_seconds: '',
     correct_answer: 'A',
-    options: {
-      A: '',
-      B: '',
-      C: '',
-      D: '',
-    },
+    options: { A: '', B: '', C: '', D: '' },
   });
 
   const openNewQuestionModal = () => {
     if (!selectedSectionId) return;
-
     setEditingQuestion(buildEmptyForm(selectedSectionId));
     setModalOpen(true);
   };
@@ -204,7 +202,7 @@ export function QuestionBank() {
   };
 
   if (loading) {
-    return <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">Loading question bank...</div>;
+    return <div className="admin-surface p-8 text-center">Loading question bank...</div>;
   }
 
   return (
@@ -218,11 +216,7 @@ export function QuestionBank() {
         <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[520px]">
           <label className="text-sm font-medium text-gray-700">
             Package
-            <select
-              value={selectedPackageId}
-              onChange={(event) => setSelectedPackageId(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2"
-            >
+            <select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)} className="field-input mt-1">
               {packages.map((pkg) => (
                 <option key={pkg.id} value={pkg.id}>
                   {pkg.title}
@@ -233,11 +227,7 @@ export function QuestionBank() {
 
           <label className="text-sm font-medium text-gray-700">
             Section
-            <select
-              value={selectedSectionId}
-              onChange={(event) => setSelectedSectionId(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2"
-            >
+            <select value={selectedSectionId} onChange={(event) => setSelectedSectionId(event.target.value)} className="field-input mt-1">
               {sections.map((section) => (
                 <option key={section.id} value={section.id}>
                   {section.section_order}. {section.title}
@@ -248,22 +238,16 @@ export function QuestionBank() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="admin-surface p-6">
         <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">{currentSection?.title || 'Select a section'}</h3>
             <p className="text-sm text-gray-600">
-              {currentSection
-                ? `${questions.length} questions loaded for this section.`
-                : 'Choose a package and section to begin.'}
+              {currentSection ? `${questions.length} questions loaded for this section.` : 'Choose a package and section to begin.'}
             </p>
           </div>
 
-          <button
-            onClick={openNewQuestionModal}
-            disabled={!selectedSectionId}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-          >
+          <button onClick={openNewQuestionModal} disabled={!selectedSectionId} className="primary-btn disabled:cursor-not-allowed disabled:opacity-50">
             <Plus className="h-4 w-4" />
             Add Question
           </button>
@@ -272,22 +256,16 @@ export function QuestionBank() {
         {loadingQuestions ? (
           <div className="py-12 text-center text-gray-600">Loading questions...</div>
         ) : questions.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center text-sm text-gray-600">
-            No questions yet for this section.
-          </div>
+          <div className="admin-soft-surface p-8 text-center text-sm text-gray-600">No questions yet for this section.</div>
         ) : (
           <div className="space-y-4">
             {questions.map((question) => (
-              <div key={question.id} className="rounded-lg border border-gray-200 p-5">
+              <div key={question.id} className="admin-soft-surface render-lite p-5">
                 <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                        Question {question.question_number}
-                      </span>
-                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">
-                        Correct: {question.correct_answer}
-                      </span>
+                      <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700">Question {question.question_number}</span>
+                      <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700">Correct: {question.correct_answer}</span>
                       {question.audio_url && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-semibold text-purple-700">
                           <Music4 className="h-3 w-3" />
@@ -305,17 +283,13 @@ export function QuestionBank() {
                   </div>
 
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditQuestionModal(question)}
-                      className="rounded-lg border border-blue-200 p-2 text-blue-600 transition-colors hover:bg-blue-50"
-                    >
+                    <button onClick={() => openEditQuestionModal(question)} className="secondary-btn px-4 py-2">
                       <Pencil className="h-4 w-4" />
+                      Edit
                     </button>
-                    <button
-                      onClick={() => void handleDeleteQuestion(question.id)}
-                      className="rounded-lg border border-red-200 p-2 text-red-600 transition-colors hover:bg-red-50"
-                    >
+                    <button onClick={() => void handleDeleteQuestion(question.id)} className="danger-btn px-4 py-2">
                       <Trash2 className="h-4 w-4" />
+                      Delete
                     </button>
                   </div>
                 </div>
@@ -324,7 +298,7 @@ export function QuestionBank() {
                   {question.options.map((option) => (
                     <div
                       key={option.id}
-                      className={`rounded-lg border px-3 py-2 text-sm ${
+                      className={`rounded-[16px] border px-3 py-2 text-sm ${
                         option.option_label === question.correct_answer
                           ? 'border-green-200 bg-green-50 text-green-900'
                           : 'border-gray-200 bg-gray-50 text-gray-700'
@@ -367,6 +341,10 @@ type QuestionModalProps = {
 function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) {
   const [form, setForm] = useState<QuestionFormState>(initialValues);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -384,8 +362,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
             question_text: form.question_text,
             question_image_url: form.question_image_url || null,
             audio_url: form.audio_url || null,
-            audio_duration_seconds:
-              form.audio_duration_seconds === '' ? null : Number(form.audio_duration_seconds),
+            audio_duration_seconds: form.audio_duration_seconds === '' ? null : Number(form.audio_duration_seconds),
             correct_answer: form.correct_answer,
           })
           .eq('id', form.id);
@@ -400,8 +377,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
             question_text: form.question_text,
             question_image_url: form.question_image_url || null,
             audio_url: form.audio_url || null,
-            audio_duration_seconds:
-              form.audio_duration_seconds === '' ? null : Number(form.audio_duration_seconds),
+            audio_duration_seconds: form.audio_duration_seconds === '' ? null : Number(form.audio_duration_seconds),
             correct_answer: form.correct_answer,
           })
           .select('id')
@@ -428,7 +404,6 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
       if (optionError) throw optionError;
 
       await syncSectionQuestionCount(form.section_id);
-
       await onSaved();
     } catch (error) {
       console.error('Error saving question:', error);
@@ -438,14 +413,56 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true);
+    try {
+      const { contentBase64, mimeType, fileName } = await imageFileToUploadPayload(file);
+      const uploaded = await uploadMedia({
+        kind: 'question-image',
+        fileName,
+        mimeType,
+        contentBase64,
+      });
+
+      setForm((prev) => ({ ...prev, question_image_url: uploaded.url }));
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      alert('Failed to upload image.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleAudioUpload = async (file: File) => {
+    setUploadingAudio(true);
+    try {
+      const [contentBase64, duration] = await Promise.all([fileToBase64(file), getAudioDuration(file)]);
+      const uploaded = await uploadMedia({
+        kind: 'question-audio',
+        fileName: file.name,
+        mimeType: file.type,
+        contentBase64,
+      });
+
+      setForm((prev) => ({
+        ...prev,
+        audio_url: uploaded.url,
+        audio_duration_seconds: duration > 0 ? Math.round(duration) : prev.audio_duration_seconds,
+      }));
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      alert('Failed to upload audio.');
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="admin-surface max-h-[95vh] w-full max-w-4xl overflow-y-auto p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-900">{form.id ? 'Edit Question' : 'New Question'}</h3>
-          <button onClick={onClose} className="text-sm text-gray-500 transition-colors hover:text-gray-700">
-            Close
-          </button>
+          <button onClick={onClose} className="ghost-btn">Close</button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -457,13 +474,8 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
                 min="1"
                 required
                 value={form.question_number}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    question_number: Number.parseInt(event.target.value || '1', 10),
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                onChange={(event) => setForm((prev) => ({ ...prev, question_number: Number.parseInt(event.target.value || '1', 10) }))}
+                className="field-input mt-1"
               />
             </label>
 
@@ -471,13 +483,8 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
               Correct answer
               <select
                 value={form.correct_answer}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    correct_answer: event.target.value as 'A' | 'B' | 'C' | 'D',
-                  }))
-                }
-                className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2"
+                onChange={(event) => setForm((prev) => ({ ...prev, correct_answer: event.target.value as 'A' | 'B' | 'C' | 'D' }))}
+                className="field-input mt-1"
               >
                 {optionLabels.map((label) => (
                   <option key={label} value={label}>
@@ -499,7 +506,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
                     audio_duration_seconds: event.target.value === '' ? '' : Number(event.target.value),
                   }))
                 }
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                className="field-input mt-1"
               />
             </label>
           </div>
@@ -511,30 +518,80 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
               required
               value={form.question_text}
               onChange={(event) => setForm((prev) => ({ ...prev, question_text: event.target.value }))}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+              className="field-input mt-1 min-h-[120px]"
             />
           </label>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="text-sm font-medium text-gray-700">
-              Image URL
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="admin-soft-surface p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-[color:var(--ink-strong)]">Question Image</div>
+                  <div className="text-xs text-[color:var(--ink-soft)]">Upload from local admin device to server storage.</div>
+                </div>
+                <button type="button" onClick={() => imageInputRef.current?.click()} className="secondary-btn px-4 py-2">
+                  <UploadCloud className="h-4 w-4" />
+                  {uploadingImage ? 'Uploading...' : 'Upload Image'}
+                </button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleImageUpload(file);
+                    }
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </div>
               <input
                 type="url"
                 value={form.question_image_url}
                 onChange={(event) => setForm((prev) => ({ ...prev, question_image_url: event.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                className="field-input"
+                placeholder="Image URL will appear here"
               />
-            </label>
+              {form.question_image_url && (
+                <img src={form.question_image_url} alt="Question preview" className="mt-4 max-h-48 w-full rounded-[18px] object-cover" />
+              )}
+            </div>
 
-            <label className="text-sm font-medium text-gray-700">
-              Audio URL
+            <div className="admin-soft-surface p-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-[color:var(--ink-strong)]">Question Audio</div>
+                  <div className="text-xs text-[color:var(--ink-soft)]">Upload MP3, WAV, or OGG from local admin device.</div>
+                </div>
+                <button type="button" onClick={() => audioInputRef.current?.click()} className="secondary-btn px-4 py-2">
+                  <UploadCloud className="h-4 w-4" />
+                  {uploadingAudio ? 'Uploading...' : 'Upload Audio'}
+                </button>
+                <input
+                  ref={audioInputRef}
+                  type="file"
+                  accept="audio/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleAudioUpload(file);
+                    }
+                    event.currentTarget.value = '';
+                  }}
+                />
+              </div>
               <input
                 type="url"
                 value={form.audio_url}
                 onChange={(event) => setForm((prev) => ({ ...prev, audio_url: event.target.value }))}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                className="field-input"
+                placeholder="Audio URL will appear here"
               />
-            </label>
+              {form.audio_url && <audio controls src={form.audio_url} className="mt-4 w-full" />}
+            </div>
           </div>
 
           <div>
@@ -556,7 +613,7 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
                         },
                       }))
                     }
-                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+                    className="field-input mt-1 min-h-[100px]"
                   />
                 </label>
               ))}
@@ -564,18 +621,10 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50"
-            >
+            <button type="button" onClick={onClose} className="secondary-btn w-full justify-center">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
-            >
+            <button type="submit" disabled={saving || uploadingImage || uploadingAudio} className="primary-btn w-full justify-center disabled:cursor-not-allowed disabled:opacity-50">
               {saving ? 'Saving...' : 'Save Question'}
             </button>
           </div>
@@ -586,21 +635,89 @@ function QuestionModal({ initialValues, onClose, onSaved }: QuestionModalProps) 
 }
 
 async function syncSectionQuestionCount(sectionId: string) {
-  const { count, error: countError } = await supabase
-    .from('questions')
-    .select('*', { count: 'exact', head: true })
-    .eq('section_id', sectionId);
+  const { count, error: countError } = await supabase.from('questions').select('*', { count: 'exact', head: true }).eq('section_id', sectionId);
+  if (countError) throw countError;
 
-  if (countError) {
-    throw countError;
-  }
+  const { error: updateError } = await supabase.from('test_sections').update({ total_questions: count || 0 }).eq('id', sectionId);
+  if (updateError) throw updateError;
+}
 
-  const { error: updateError } = await supabase
-    .from('test_sections')
-    .update({ total_questions: count || 0 })
-    .eq('id', sectionId);
+function fileToBase64(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string') {
+        reject(new Error('Failed to read file.'));
+        return;
+      }
+      resolve(result.split(',')[1] || '');
+    };
+    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.readAsDataURL(file);
+  });
+}
 
-  if (updateError) {
-    throw updateError;
-  }
+function imageFileToUploadPayload(file: File) {
+  const maxDimension = 1600;
+  const targetMimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  const quality = targetMimeType === 'image/png' ? undefined : 0.82;
+
+  return new Promise<{ contentBase64: string; mimeType: string; fileName: string }>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext('2d');
+        if (!context) {
+          reject(new Error('Canvas context unavailable.'));
+          return;
+        }
+
+        context.drawImage(image, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL(targetMimeType, quality);
+        const extension = targetMimeType === 'image/png' ? 'png' : 'jpg';
+        const baseName = file.name.replace(/\.[^.]+$/, '') || 'question-image';
+
+        resolve({
+          contentBase64: dataUrl.split(',')[1] || '',
+          mimeType: targetMimeType,
+          fileName: `${baseName}.${extension}`,
+        });
+      };
+
+      image.onerror = () => reject(new Error('Failed to process image.'));
+      image.src = typeof reader.result === 'string' ? reader.result : '';
+    };
+
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function getAudioDuration(file: File) {
+  return new Promise<number>((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const audio = document.createElement('audio');
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(Number.isFinite(audio.duration) ? audio.duration : 0);
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(0);
+    };
+    audio.src = objectUrl;
+  });
 }

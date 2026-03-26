@@ -1,5 +1,5 @@
-import { useRef, useEffect, useState } from 'react';
-import { Play, Pause, Volume2 } from 'lucide-react';
+import { memo, useRef, useEffect, useState } from 'react';
+import { Pause, Play, Volume2 } from 'lucide-react';
 
 type Question = {
   id: string;
@@ -20,7 +20,7 @@ type QuestionDisplayProps = {
   onSelectAnswer: (answer: string) => void;
 };
 
-export function QuestionDisplay({ question, selectedAnswer, onSelectAnswer }: QuestionDisplayProps) {
+function QuestionDisplayComponent({ question, selectedAnswer, onSelectAnswer }: QuestionDisplayProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -40,7 +40,7 @@ export function QuestionDisplay({ question, selectedAnswer, onSelectAnswer }: Qu
     if (isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      void audioRef.current.play();
     }
     setIsPlaying(!isPlaying);
   };
@@ -69,12 +69,12 @@ export function QuestionDisplay({ question, selectedAnswer, onSelectAnswer }: Qu
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {question.audio_url && (
-        <div className="bg-blue-50 rounded-lg p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <Volume2 className="w-5 h-5 text-blue-600" />
-            <span className="font-medium text-gray-900">Audio</span>
+        <div className="rounded-[28px] bg-[#f5f4ff] p-6">
+          <div className="mb-5 text-center">
+            <div className="text-3xl font-extrabold text-[color:var(--ink-strong)]">{question.audio_duration_seconds ? 'Listening Prompt' : 'Audio Track'}</div>
+            <div className="mt-2 text-sm text-[color:var(--ink-soft)]">Play the audio and answer the question below.</div>
           </div>
 
           <audio
@@ -85,22 +85,36 @@ export function QuestionDisplay({ question, selectedAnswer, onSelectAnswer }: Qu
             onEnded={handleEnded}
           />
 
-          <div className="flex items-center gap-3">
+          <div className="mx-auto flex max-w-4xl items-center gap-4 rounded-[28px] border border-[rgba(119,123,179,0.12)] bg-white px-5 py-5">
             <button
               onClick={togglePlay}
-              className="flex items-center justify-center w-10 h-10 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
+              className="flex h-20 w-20 items-center justify-center rounded-full bg-[linear-gradient(135deg,#1d56dd,#1551bd)] text-white transition-transform hover:scale-[1.02]"
             >
-              {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+              {isPlaying ? <Pause className="h-8 w-8" /> : <Play className="ml-1 h-8 w-8" />}
             </button>
 
             <div className="flex-1">
-              <div className="relative h-2 bg-blue-200 rounded-full overflow-hidden">
-                <div
-                  className="absolute top-0 left-0 h-full bg-blue-600 transition-all"
-                  style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-                />
+              <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[color:var(--ink-main)]">
+                <Volume2 className="h-4 w-4 text-[color:var(--blue)]" />
+                Listening player
               </div>
-              <div className="flex justify-between text-xs text-gray-600 mt-1">
+              <div className="flex items-end gap-2 overflow-hidden rounded-full bg-[#eef2ff] px-4 py-5">
+                {Array.from({ length: 26 }).map((_, index) => {
+                  const heights = [18, 34, 52, 26, 62, 22, 41, 55, 30, 67, 39, 21];
+                  const barHeight = heights[index % heights.length];
+                  const activeWidth = duration > 0 ? Math.floor((currentTime / duration) * 26) : 0;
+                  const isActive = index <= activeWidth;
+
+                  return (
+                    <div
+                      key={index}
+                      className={`w-2 rounded-full transition-colors ${isActive ? 'bg-[color:var(--blue)]' : 'bg-[#7ea5ff]'}`}
+                      style={{ height: `${barHeight}px`, opacity: isActive ? 1 : 0.72 }}
+                    />
+                  );
+                })}
+              </div>
+              <div className="mt-3 flex justify-between text-sm font-semibold text-[color:var(--ink-soft)]">
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
@@ -110,50 +124,64 @@ export function QuestionDisplay({ question, selectedAnswer, onSelectAnswer }: Qu
       )}
 
       <div className="space-y-4">
-        <div className="text-gray-900">
-          <span className="font-semibold">{question.question_number}.</span> {question.question_text}
+        <div className="inline-flex rounded-full bg-[color:var(--blue-soft)] px-4 py-2 text-sm font-bold text-[color:var(--blue-deep)]">
+          Question {question.question_number}
+        </div>
+        <div className="max-w-5xl text-3xl font-extrabold leading-tight text-[color:var(--ink-strong)]">
+          {question.question_text}
         </div>
 
         {question.question_image_url && (
-          <div className="my-4">
+          <div className="overflow-hidden rounded-[28px] border border-[rgba(119,123,179,0.16)] bg-white p-3">
             <img
               src={question.question_image_url}
               alt={`Question ${question.question_number}`}
-              className="max-w-full h-auto rounded-lg border border-gray-200"
+              className="max-h-[360px] w-full rounded-[24px] object-cover"
               loading="lazy"
             />
           </div>
         )}
 
-        <div className="space-y-2">
-          {question.options.map((option) => (
-            <button
-              key={option.option_label}
-              onClick={() => onSelectAnswer(option.option_label)}
-              className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                selectedAnswer === option.option_label
-                  ? 'border-blue-600 bg-blue-50'
-                  : 'border-gray-200 hover:border-blue-300 bg-white'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center font-semibold ${
-                    selectedAnswer === option.option_label
-                      ? 'border-blue-600 bg-blue-600 text-white'
-                      : 'border-gray-300 text-gray-600'
-                  }`}
-                >
-                  {option.option_label}
+        <div className="space-y-4 pt-2">
+          {question.options.map((option) => {
+            const isSelected = selectedAnswer === option.option_label;
+
+            return (
+              <button
+                key={option.option_label}
+                onClick={() => onSelectAnswer(option.option_label)}
+                className={`w-full rounded-[30px] border bg-white px-5 py-5 text-left transition-all ${
+                  isSelected
+                    ? 'border-[color:var(--blue)] bg-[#edf2ff]'
+                    : 'border-[rgba(119,123,179,0.14)] hover:border-[rgba(35,88,230,0.28)] hover:bg-white'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full text-lg font-extrabold ${
+                      isSelected
+                        ? 'bg-[linear-gradient(135deg,#1d56dd,#1551bd)] text-white'
+                        : 'bg-[#ecebff] text-[color:var(--ink-main)]'
+                    }`}
+                  >
+                    {option.option_label}
+                  </div>
+                  <div className="flex-1 text-base font-medium leading-8 text-[color:var(--ink-strong)]">
+                    {option.option_text}
+                  </div>
+                  {isSelected && (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[color:var(--blue)] text-white">
+                      <div className="h-2.5 w-2.5 rounded-full bg-white" />
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 pt-1">
-                  <p className="text-gray-900">{option.option_text}</p>
-                </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
+
+export const QuestionDisplay = memo(QuestionDisplayComponent);

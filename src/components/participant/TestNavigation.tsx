@@ -1,3 +1,6 @@
+import { memo, ReactNode } from 'react';
+import { CheckCircle2, Flag, HelpCircle, Radio } from 'lucide-react';
+
 type TestSection = {
   id: string;
   title: string;
@@ -13,7 +16,7 @@ type TestNavigationProps = {
   onNavigate: (sectionIndex: number, questionIndex: number) => void;
 };
 
-export function TestNavigation({
+function TestNavigationComponent({
   sections,
   currentSectionIndex,
   currentQuestionIndex,
@@ -24,25 +27,47 @@ export function TestNavigation({
   let questionCounter = 0;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 sticky top-24">
-      <h3 className="font-semibold text-gray-900 mb-4">Question Navigation</h3>
+    <aside className="sticky top-24 overflow-hidden rounded-[24px] border border-[rgba(119,123,179,0.14)] bg-white p-5 shadow-[0_10px_22px_rgba(71,80,140,0.08)]">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-2xl font-extrabold">Question Navigation</h3>
+          <p className="mt-1 text-sm text-[color:var(--ink-soft)]">Track current, answered, and flagged items.</p>
+        </div>
+      </div>
 
-      <div className="space-y-4">
+      <div className="mt-6 space-y-3 rounded-[22px] bg-[#f6f8ff] p-4">
+        <LegendItem icon={<Radio className="h-4 w-4" />} label="Current" tone="text-[color:var(--blue-deep)]" />
+        <LegendItem icon={<CheckCircle2 className="h-4 w-4" />} label="Answered" tone="text-[#12965a]" />
+        <LegendItem icon={<Flag className="h-4 w-4" />} label="Flagged" tone="text-[#af6a00]" />
+        <LegendItem icon={<HelpCircle className="h-4 w-4" />} label="Unanswered" tone="text-[color:var(--ink-soft)]" />
+      </div>
+
+      <div className="mt-6 space-y-5">
         {sections.map((section, sectionIndex) => {
-          const sectionStartNumber = questionCounter;
-          const sectionQuestions = section.questions.map((q, idx) => {
-            const absoluteNumber = questionCounter + 1;
-            questionCounter++;
-            return { ...q, absoluteNumber, sectionQuestionIndex: idx };
+          const sectionQuestions = section.questions.map((question, idx) => {
+            questionCounter += 1;
+            return {
+              ...question,
+              absoluteNumber: questionCounter,
+              sectionQuestionIndex: idx,
+            };
           });
 
           return (
-            <div key={section.id} className="space-y-2">
-              <div className="text-sm font-medium text-gray-700 pb-2 border-b border-gray-200">
-                {section.title}
+            <section key={section.id} className="rounded-[22px] bg-[#f7f8ff] p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">
+                    Section
+                  </div>
+                  <div className="mt-1 text-base font-extrabold text-[color:var(--ink-strong)]">{section.title}</div>
+                </div>
+                <div className="rounded-full bg-[color:var(--blue-soft)] px-3 py-1 text-xs font-bold text-[color:var(--blue-deep)]">
+                  {section.questions.length} items
+                </div>
               </div>
 
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-3">
                 {sectionQuestions.map((question) => {
                   const isAnswered = !!answers[question.id];
                   const isFlagged = !!flagged[question.id];
@@ -50,51 +75,56 @@ export function TestNavigation({
                     sectionIndex === currentSectionIndex &&
                     question.sectionQuestionIndex === currentQuestionIndex;
 
+                  let classes =
+                    'bg-white text-[color:var(--ink-main)] border border-[rgba(122,128,182,0.16)] hover:border-[rgba(35,88,230,0.28)]';
+
+                  if (isAnswered) {
+                    classes = 'bg-[#dbfff0] text-[#127548] border border-[#b2f1d0]';
+                  }
+
+                  if (isFlagged) {
+                    classes = 'bg-[#fff0d7] text-[#9a6204] border border-[#f4d39a]';
+                  }
+
+                  if (isCurrent) {
+                    classes =
+                      'bg-[linear-gradient(135deg,#2358e6,#2f76ff)] text-white border border-transparent shadow-[0_14px_26px_rgba(35,88,230,0.22)]';
+                  }
+
                   return (
                     <button
                       key={question.id}
                       onClick={() => onNavigate(sectionIndex, question.sectionQuestionIndex)}
-                      className={`
-                        aspect-square rounded-lg font-medium text-sm transition-all
-                        ${
-                          isCurrent
-                            ? 'bg-blue-600 text-white ring-2 ring-blue-400'
-                            : isFlagged
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                            : isAnswered
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }
-                      `}
+                      className={`aspect-square rounded-[20px] text-sm font-extrabold transition-all ${classes}`}
                     >
                       {question.absoluteNumber}
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </section>
           );
         })}
       </div>
+    </aside>
+  );
+}
 
-      <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-6 h-6 rounded bg-green-100 border border-green-200"></div>
-          <span className="text-gray-600">Answered</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-6 h-6 rounded bg-red-100 border border-red-200"></div>
-          <span className="text-gray-600">Flagged</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-6 h-6 rounded bg-gray-100 border border-gray-200"></div>
-          <span className="text-gray-600">Not Answered</span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <div className="w-6 h-6 rounded bg-blue-600 border border-blue-700"></div>
-          <span className="text-gray-600">Current</span>
-        </div>
-      </div>
+export const TestNavigation = memo(TestNavigationComponent);
+
+function LegendItem({
+  icon,
+  label,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  tone: string;
+}) {
+  return (
+    <div className={`flex items-center gap-3 text-sm font-semibold ${tone}`}>
+      {icon}
+      <span>{label}</span>
     </div>
   );
 }

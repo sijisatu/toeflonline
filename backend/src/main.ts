@@ -10,7 +10,7 @@ import { AppConfigService } from './shared/config/app-config.service';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({ bodyLimit: 25 * 1024 * 1024 }),
   );
 
   const config = app.get(AppConfigService);
@@ -33,3 +33,4 @@ async function bootstrap() {
 }
 
 void bootstrap();
+

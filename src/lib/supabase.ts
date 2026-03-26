@@ -138,6 +138,7 @@ type Filter =
   | { type: 'gte'; field: string; value: number };
 
 const API_BASE_URL = 'http://127.0.0.1:4000/api';
+const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 const SESSION_STORAGE_KEY = 'toefl-api-session';
 const AUTH_EVENT_NAME = 'toefl-api-auth';
 
@@ -328,6 +329,23 @@ export async function calculateScore(sessionId: string) {
   return result.certificate;
 }
 
+
+export async function uploadMedia(input: {
+  kind: 'question-image' | 'question-audio';
+  fileName: string;
+  mimeType: string;
+  contentBase64: string;
+}) {
+  const result = await apiFetch<{ url: string; fileName: string; mimeType: string; size: number }>('/media/upload', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return {
+    ...result,
+    url: `${API_ORIGIN}${result.url}`,
+  };
+}
 export function resetLocalDemoData() {
   setStoredSession(null);
   emitAuthEvent('signed_out', null);
@@ -422,4 +440,7 @@ export const supabase: any = {
     return new QueryBuilder(table);
   },
 };
+
+
+
 

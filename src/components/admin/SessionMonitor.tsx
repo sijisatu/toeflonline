@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Camera, CircleOff, RefreshCcw, MonitorPlay } from 'lucide-react';
+import { AlertTriangle, Camera, CircleOff, MonitorPlay, RefreshCcw, UserSquare2 } from 'lucide-react';
 import { TestPackage, TestSession, supabase } from '../../lib/supabase';
 
 type ProfileLite = {
@@ -9,6 +9,13 @@ type ProfileLite = {
 };
 
 type ProctoringLogLite = {
+  id: string;
+  session_id: string;
+  event_type: string;
+  timestamp: string;
+};
+
+type SnapshotLog = {
   id: string;
   session_id: string;
   event_type: string;
@@ -26,7 +33,6 @@ type SessionView = TestSession & {
   answerCount: number;
   violationCount: number;
   latestLog: ProctoringLogLite | null;
-  latestSnapshot: ProctoringLogLite | null;
 };
 
 export function SessionMonitor() {
@@ -34,6 +40,9 @@ export function SessionMonitor() {
   const [statusFilter, setStatusFilter] = useState<'all' | TestSession['status']>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedSnapshot, setSelectedSnapshot] = useState<SnapshotLog | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
 
   useEffect(() => {
     void loadSessions(true);
@@ -49,6 +58,33 @@ export function SessionMonitor() {
     if (statusFilter === 'all') return sessions;
     return sessions.filter((session) => session.status === statusFilter);
   }, [sessions, statusFilter]);
+
+  const selectedSession = useMemo(
+    () => filteredSessions.find((session) => session.id === selectedSessionId) || filteredSessions[0] || null,
+    [filteredSessions, selectedSessionId],
+  );
+
+  useEffect(() => {
+    if (!selectedSession && selectedSessionId !== null) {
+      setSelectedSessionId(null);
+      setSelectedSnapshot(null);
+      return;
+    }
+
+    if (!selectedSession) {
+      setSelectedSnapshot(null);
+      return;
+    }
+
+    setSelectedSessionId(selectedSession.id);
+
+    if (selectedSession.status !== 'in_progress') {
+      setSelectedSnapshot(null);
+      return;
+    }
+
+    void loadSelectedSnapshot(selectedSession.id);
+  }, [selectedSession, selectedSessionId]);
 
   const inProgressCount = sessions.filter((session) => session.status === 'in_progress').length;
   const completedCount = sessions.filter((session) => session.status === 'completed').length;
@@ -74,37 +110,34 @@ export function SessionMonitor() {
       const packageIds = Array.from(new Set(sessionsData.map((session: TestSession) => session.package_id)));
       const sessionIds = sessionsData.map((session: TestSession) => session.id);
 
-      let profileRows: ProfileLite[] = [];
-      if (profileIds.length) {
-        const { data, error } = await supabase.from('profiles').select('id, full_name, email').in('id', profileIds);
-        if (error) throw error;
-        profileRows = data || [];
-      }
+      const [profileResult, packageResult, answerResult, logResult] = await Promise.all([
+        profileIds.length
+          ? supabase.from('profiles').select('id, full_name, email').in('id', profileIds)
+          : Promise.resolve({ data: [], error: null }),
+        packageIds.length
+          ? supabase.from('test_packages').select('id, title').in('id', packageIds)
+          : Promise.resolve({ data: [], error: null }),
+        sessionIds.length
+          ? supabase.from('user_answers').select('id, session_id').in('session_id', sessionIds)
+          : Promise.resolve({ data: [], error: null }),
+        sessionIds.length
+          ? supabase
+              .from('proctoring_logs')
+              .select('id, session_id, event_type, timestamp')
+              .in('session_id', sessionIds)
+              .order('timestamp', { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-      let packageRows: Array<Pick<TestPackage, 'id' | 'title'>> = [];
-      if (packageIds.length) {
-        const { data, error } = await supabase.from('test_packages').select('id, title').in('id', packageIds);
-        if (error) throw error;
-        packageRows = data || [];
-      }
+      if (profileResult.error) throw profileResult.error;
+      if (packageResult.error) throw packageResult.error;
+      if (answerResult.error) throw answerResult.error;
+      if (logResult.error) throw logResult.error;
 
-      let answerRows: Array<{ id: string; session_id: string }> = [];
-      if (sessionIds.length) {
-        const { data, error } = await supabase.from('user_answers').select('id, session_id').in('session_id', sessionIds);
-        if (error) throw error;
-        answerRows = data || [];
-      }
-
-      let logRows: ProctoringLogLite[] = [];
-      if (sessionIds.length) {
-        const { data, error } = await supabase
-          .from('proctoring_logs')
-          .select('id, session_id, event_type, timestamp, event_data')
-          .in('session_id', sessionIds)
-          .order('timestamp', { ascending: false });
-        if (error) throw error;
-        logRows = data || [];
-      }
+      const profileRows = (profileResult.data || []) as ProfileLite[];
+      const packageRows = (packageResult.data || []) as Array<Pick<TestPackage, 'id' | 'title'>>;
+      const answerRows = (answerResult.data || []) as Array<{ id: string; session_id: string }>;
+      const logRows = (logResult.data || []) as ProctoringLogLite[];
 
       const profileMap = new Map<string, ProfileLite>(profileRows.map((row) => [row.id, row]));
       const packageMap = new Map<string, Pick<TestPackage, 'id' | 'title'>>(packageRows.map((row) => [row.id, row]));
@@ -125,11 +158,10 @@ export function SessionMonitor() {
         const profile = profileMap.get(session.user_id);
         const pkg = packageMap.get(session.package_id);
         const logs = logMap.get(session.id) || [];
-        const latestSnapshot = logs.find((log) => log.event_type === 'snapshot_uploaded' && log.event_data?.imageData) || null;
         const violations = logs.filter((log) =>
           ['camera_blocked', 'microphone_blocked', 'tab_switch', 'face_not_detected', 'multiple_faces', 'fullscreen_exit'].includes(
-            log.event_type
-          )
+            log.event_type,
+          ),
         ).length;
 
         return {
@@ -140,7 +172,6 @@ export function SessionMonitor() {
           answerCount: answerCountMap.get(session.id) || 0,
           violationCount: violations,
           latestLog: logs[0] || null,
-          latestSnapshot,
         };
       });
 
@@ -151,6 +182,28 @@ export function SessionMonitor() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const loadSelectedSnapshot = async (sessionId: string) => {
+    setSnapshotLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('proctoring_logs')
+        .select('id, session_id, event_type, timestamp, event_data')
+        .eq('session_id', sessionId)
+        .eq('event_type', 'snapshot_uploaded')
+        .order('timestamp', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setSelectedSnapshot((data as SnapshotLog | null) || null);
+    } catch (error) {
+      console.error('Error loading snapshot:', error);
+      setSelectedSnapshot(null);
+    } finally {
+      setSnapshotLoading(false);
     }
   };
 
@@ -167,7 +220,10 @@ export function SessionMonitor() {
         .eq('id', sessionId);
 
       if (error) throw error;
+
+      await supabase.from('proctoring_logs').delete().eq('session_id', sessionId).eq('event_type', 'snapshot_uploaded');
       await loadSessions(false);
+      setSelectedSnapshot(null);
     } catch (error) {
       console.error('Error marking session abandoned:', error);
       alert('Failed to update session status.');
@@ -175,22 +231,24 @@ export function SessionMonitor() {
   };
 
   if (loading) {
-    return <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">Loading sessions...</div>;
+    return <div className="admin-surface p-10 text-center text-sm text-[color:var(--ink-soft)]">Loading sessions...</div>;
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Live Sessions</h2>
-          <p className="text-sm text-gray-600">Track active attempts, proctoring events, session status, and latest camera snapshots.</p>
+          <h2 className="text-3xl font-extrabold">Live Sessions</h2>
+          <p className="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">
+            Default view is compact so many participants remain visible. Click any participant for detail.
+          </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as 'all' | TestSession['status'])}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            className="field-input min-w-[190px]"
           >
             <option value="all">All statuses</option>
             <option value="in_progress">In progress</option>
@@ -198,10 +256,7 @@ export function SessionMonitor() {
             <option value="abandoned">Abandoned</option>
           </select>
 
-          <button
-            onClick={() => void loadSessions(false)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-white transition-colors hover:bg-gray-800"
-          >
+          <button onClick={() => void loadSessions(false)} className="secondary-btn">
             <RefreshCcw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
@@ -214,96 +269,122 @@ export function SessionMonitor() {
         <SummaryCard label="Sessions With Violations" value={flaggedCount} tone="amber" />
       </div>
 
-      <div className="space-y-4">
-        {filteredSessions.map((session) => (
-          <div key={session.id} className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{session.participantName}</h3>
-                  <StatusBadge status={session.status} />
-                </div>
-                <div className="text-sm text-gray-600">{session.participantEmail}</div>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                  <span>Package: {session.packageTitle}</span>
-                  <span>Started: {new Date(session.started_at).toLocaleString()}</span>
-                  <span>Answers saved: {session.answerCount}</span>
-                  <span>Time left: {formatDuration(session.time_remaining_seconds)}</span>
-                </div>
-              </div>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(360px,0.75fr)]">
+        <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredSessions.map((session) => {
+              const isActive = selectedSession?.id === session.id;
+              return (
+                <button
+                  key={session.id}
+                  onClick={() => setSelectedSessionId(session.id)}
+                  className={`admin-surface render-lite p-4 text-left transition-all ${
+                    isActive ? 'ring-2 ring-[color:var(--blue)] bg-[#eef3ff]' : 'hover:bg-[#f8f9ff]'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-base font-extrabold text-[color:var(--ink-strong)]">{session.participantName}</div>
+                      <div className="mt-1 line-clamp-1 text-xs text-[color:var(--ink-soft)]">{session.participantEmail}</div>
+                    </div>
+                    <StatusBadge status={session.status} />
+                  </div>
 
-              <div className="flex flex-wrap gap-2">
-                {session.status === 'in_progress' && (
-                  <button
-                    onClick={() => void markAbandoned(session.id)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-                  >
+                  <div className="mt-4 space-y-2 text-xs text-[color:var(--ink-soft)]">
+                    <div>Package: {session.packageTitle}</div>
+                    <div>Answers: {session.answerCount}</div>
+                    <div>Warnings: {session.violationCount}</div>
+                    <div>Time left: {formatDuration(session.time_remaining_seconds)}</div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {filteredSessions.length === 0 && (
+            <div className="admin-surface p-8 text-center text-sm text-[color:var(--ink-soft)]">
+              No sessions match the current filter.
+            </div>
+          )}
+        </div>
+
+        <div className="admin-surface p-5 sm:p-6">
+          {selectedSession ? (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-2xl font-extrabold">{selectedSession.participantName}</h3>
+                  <p className="mt-1 text-sm text-[color:var(--ink-soft)]">{selectedSession.participantEmail}</p>
+                  <p className="mt-2 text-sm text-[color:var(--ink-soft)]">Package: {selectedSession.packageTitle}</p>
+                </div>
+                {selectedSession.status === 'in_progress' && (
+                  <button onClick={() => void markAbandoned(selectedSession.id)} className="danger-btn">
                     <CircleOff className="h-4 w-4" />
                     Mark Abandoned
                   </button>
                 )}
               </div>
-            </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-3">
-              <div className="rounded-lg bg-gray-50 p-4">
-                <div className="mb-2 text-sm font-semibold text-gray-900">Proctoring summary</div>
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    <span>{session.violationCount} warning events</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Camera className="h-4 w-4 text-gray-500" />
-                    <span>{session.proctoring_enabled ? 'Camera/mic required' : 'Proctoring disabled'}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MonitorPlay className="h-4 w-4 text-gray-500" />
-                    <span>{session.latestSnapshot ? 'Snapshot available' : 'No snapshot yet'}</span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="admin-soft-surface p-4">
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">Started</div>
+                  <div className="mt-2 text-sm font-semibold text-[color:var(--ink-strong)]">{new Date(selectedSession.started_at).toLocaleString()}</div>
+                </div>
+                <div className="admin-soft-surface p-4">
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">Progress</div>
+                  <div className="mt-2 text-sm font-semibold text-[color:var(--ink-strong)]">{selectedSession.answerCount} answers saved</div>
+                </div>
+                <div className="admin-soft-surface p-4">
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">Warnings</div>
+                  <div className="mt-2 text-sm font-semibold text-[color:var(--ink-strong)]">{selectedSession.violationCount} violation events</div>
+                </div>
+                <div className="admin-soft-surface p-4">
+                  <div className="text-xs font-bold uppercase tracking-[0.22em] text-[color:var(--ink-soft)]">Latest Event</div>
+                  <div className="mt-2 text-sm font-semibold text-[color:var(--ink-strong)]">
+                    {selectedSession.latestLog ? formatEventLabel(selectedSession.latestLog.event_type) : 'No event yet'}
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg bg-gray-50 p-4 lg:col-span-2">
-                <div className="mb-2 text-sm font-semibold text-gray-900">Latest event</div>
-                {session.latestLog ? (
-                  <div className="space-y-1 text-sm text-gray-600">
-                    <div className="font-medium text-gray-900">{formatEventLabel(session.latestLog.event_type)}</div>
-                    <div>{new Date(session.latestLog.timestamp).toLocaleString()}</div>
+              <div className="admin-soft-surface p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[color:var(--ink-strong)]">
+                  <MonitorPlay className="h-4 w-4" />
+                  Participant Camera Preview
+                </div>
+                {selectedSession.status !== 'in_progress' ? (
+                  <div className="rounded-[18px] bg-white p-4 text-sm text-[color:var(--ink-soft)]">
+                    Session history does not retain camera preview. Snapshot/live preview is only shown while the participant is still in progress.
+                  </div>
+                ) : snapshotLoading ? (
+                  <div className="rounded-[18px] bg-white p-4 text-sm text-[color:var(--ink-soft)]">Loading live preview...</div>
+                ) : selectedSnapshot?.event_data?.imageData ? (
+                  <div className="overflow-hidden rounded-[20px] border border-[rgba(119,123,179,0.14)] bg-black">
+                    <img
+                      src={selectedSnapshot.event_data.imageData}
+                      alt={`Live preview for ${selectedSession.participantName}`}
+                      className="h-56 w-full object-cover"
+                    />
+                    <div className="bg-white px-3 py-2 text-xs text-[color:var(--ink-soft)]">
+                      Latest preview at {new Date(selectedSnapshot.timestamp).toLocaleString()}
+                    </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-gray-500">No proctoring logs recorded yet.</div>
+                  <div className="rounded-[18px] bg-white p-4 text-sm text-[color:var(--ink-soft)]">
+                    No preview available yet. Refresh after the participant has been in session for a few seconds.
+                  </div>
                 )}
               </div>
             </div>
-
-            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-              <div className="mb-3 text-sm font-semibold text-gray-900">Participant Camera Preview</div>
-              {session.latestSnapshot?.event_data?.imageData ? (
-                <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
-                  <img
-                    src={session.latestSnapshot.event_data.imageData}
-                    alt={`Latest snapshot for ${session.participantName}`}
-                    className="h-56 w-full object-cover"
-                  />
-                  <div className="border-t border-gray-200 bg-white px-3 py-2 text-xs text-gray-500">
-                    Captured {new Date(session.latestSnapshot.timestamp).toLocaleString()}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
-                  Snapshot peserta belum tersedia. Tunggu sekitar 20 detik setelah test dimulai lalu klik refresh.
-                </div>
-              )}
+          ) : (
+            <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[20px] bg-[#f8f9ff] p-6 text-center">
+              <UserSquare2 className="h-12 w-12 text-[color:var(--ink-soft)]" />
+              <div className="mt-4 text-xl font-extrabold text-[color:var(--ink-strong)]">Select a participant</div>
+              <p className="mt-2 max-w-sm text-sm leading-7 text-[color:var(--ink-soft)]">
+                Click any compact participant card on the left to inspect status, violations, and live preview.
+              </p>
             </div>
-          </div>
-        ))}
-
-        {filteredSessions.length === 0 && (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-600">
-            No sessions match the current filter.
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -312,15 +393,15 @@ export function SessionMonitor() {
 function SummaryCard({ label, value, tone }: { label: string; value: number; tone: 'blue' | 'green' | 'amber' }) {
   const toneClass =
     tone === 'blue'
-      ? 'bg-blue-50 text-blue-800'
+      ? 'bg-[#edf2ff] text-[color:var(--blue-deep)]'
       : tone === 'green'
-      ? 'bg-green-50 text-green-800'
-      : 'bg-amber-50 text-amber-800';
+      ? 'bg-[#ecfff5] text-[#127548]'
+      : 'bg-[#fff4db] text-[#9a6204]';
 
   return (
-    <div className={`rounded-xl border border-gray-200 p-5 shadow-sm ${toneClass}`}>
-      <div className="text-sm font-medium">{label}</div>
-      <div className="mt-2 text-3xl font-bold">{value}</div>
+    <div className={`admin-soft-surface p-5 ${toneClass}`}>
+      <div className="text-xs font-bold uppercase tracking-[0.24em]">{label}</div>
+      <div className="mt-3 text-4xl font-extrabold">{value}</div>
     </div>
   );
 }
@@ -328,12 +409,12 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
 function StatusBadge({ status }: { status: TestSession['status'] }) {
   const styles =
     status === 'completed'
-      ? 'bg-green-100 text-green-700'
+      ? 'bg-[#dbfff0] text-[#127548]'
       : status === 'abandoned'
-      ? 'bg-red-100 text-red-700'
-      : 'bg-blue-100 text-blue-700';
+      ? 'bg-[#ffe9ee] text-[#bc3f63]'
+      : 'bg-[color:var(--blue-soft)] text-[color:var(--blue-deep)]';
 
-  return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${styles}`}>{status}</span>;
+  return <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] ${styles}`}>{status}</span>;
 }
 
 function formatDuration(seconds: number) {

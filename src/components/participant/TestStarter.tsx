@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase, TestPackage, TestSection } from '../../lib/supabase';
 import { TestInterface } from './TestInterface';
-import { Camera, Mic, AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Camera, CheckCircle2, Clock3, Mic, ShieldCheck } from 'lucide-react';
 
 type TestStarterProps = {
   packageId: string;
@@ -18,8 +18,8 @@ export function TestStarter({ packageId }: TestStarterProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPackageInfo();
-    checkExistingSession();
+    void fetchPackageInfo();
+    void checkExistingSession();
   }, [packageId]);
 
   const fetchPackageInfo = async () => {
@@ -121,102 +121,163 @@ export function TestStarter({ packageId }: TestStarterProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="page-backdrop flex items-center justify-center px-4">
+        <div className="glass-card-strong w-full max-w-md p-10 text-center">
+          <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-[#d7e1ff] border-t-[color:var(--blue)]" />
+          <p className="mt-6 text-sm text-[color:var(--ink-soft)]">Loading package briefing...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="max-w-2xl w-full bg-white rounded-xl shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{testPackage?.title}</h1>
-        {testPackage?.description && (
-          <p className="text-gray-600 mb-6">{testPackage.description}</p>
-        )}
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <h3 className="font-semibold text-blue-900 mb-3">Test Information</h3>
-          <div className="space-y-2 text-sm text-gray-700">
-            <p>Duration: {testPackage?.duration_minutes} minutes</p>
-            <p>Total Sections: {sections.length}</p>
-            <p>
-              Sections:{' '}
-              {sections.map((s) => s.title).join(', ')}
-            </p>
-          </div>
-        </div>
-
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <div className="space-y-2 text-sm text-gray-700">
-              <p className="font-semibold text-yellow-900">Important Instructions:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Camera and microphone monitoring is required throughout the test</li>
-                <li>Do not switch tabs or minimize the browser window</li>
-                <li>Ensure you have a stable internet connection</li>
-                <li>You cannot pause the test once started</li>
-                <li>Your screen activity will be monitored</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-3 mb-6">
-          <h3 className="font-semibold text-gray-900">System Requirements</h3>
-
-          <div
-            className={`flex items-center gap-3 p-3 rounded-lg border ${
-              cameraPermission
-                ? 'bg-green-50 border-green-200'
-                : 'bg-gray-50 border-gray-200'
-            }`}
-          >
-            <Camera className={`w-5 h-5 ${cameraPermission ? 'text-green-600' : 'text-gray-400'}`} />
-            <span className="flex-1 text-sm text-gray-700">Camera Access</span>
-            {cameraPermission && <CheckCircle className="w-5 h-5 text-green-600" />}
-          </div>
-
-          <div
-            className={`flex items-center gap-3 p-3 rounded-lg border ${
-              micPermission
-                ? 'bg-green-50 border-green-200'
-                : 'bg-gray-50 border-gray-200'
-            }`}
-          >
-            <Mic className={`w-5 h-5 ${micPermission ? 'text-green-600' : 'text-gray-400'}`} />
-            <span className="flex-1 text-sm text-gray-700">Microphone Access</span>
-            {micPermission && <CheckCircle className="w-5 h-5 text-green-600" />}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          {!cameraPermission || !micPermission ? (
-            <button
-              onClick={requestPermissions}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Grant Permissions
-            </button>
-          ) : (
-            <button
-              onClick={startTest}
-              className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
-            >
-              Start Test
-            </button>
-          )}
-
-          <button
-            onClick={() => (window.location.href = '/')}
-            className="w-full border border-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-          >
+    <div className="page-backdrop py-6">
+      <div className="shell-wrap space-y-6">
+        <div className="flex justify-start">
+          <button onClick={() => (window.location.href = '/')} className="secondary-btn">
+            <ArrowLeft className="h-4 w-4" />
             Back to Dashboard
           </button>
+        </div>
+
+        <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="glass-card p-6 sm:p-8">
+            <span className="eyebrow">Session Briefing</span>
+            <h1 className="mt-4 text-4xl font-extrabold">{testPackage?.title}</h1>
+            {testPackage?.description && (
+              <p className="mt-4 max-w-3xl text-sm leading-8 text-[color:var(--ink-soft)] md:text-base">
+                {testPackage.description}
+              </p>
+            )}
+
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              <div className="metric-card">
+                <div className="metric-label">Duration</div>
+                <div className="mt-3 flex items-center gap-2 text-2xl font-extrabold text-[color:var(--ink-strong)]">
+                  <Clock3 className="h-5 w-5 text-[color:var(--blue)]" />
+                  {testPackage?.duration_minutes}m
+                </div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Sections</div>
+                <div className="metric-value">{sections.length}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Proctoring</div>
+                <div className="mt-3 flex items-center gap-2 text-lg font-extrabold text-[color:var(--ink-strong)]">
+                  <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                  Required
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 grid gap-4 lg:grid-cols-[1fr_1fr]">
+              <div className="soft-card p-5">
+                <div className="text-sm font-bold uppercase tracking-[0.24em] text-[color:var(--ink-soft)]">Section Order</div>
+                <div className="mt-4 space-y-3">
+                  {sections.map((section, index) => (
+                    <div key={section.id} className="flex items-center justify-between rounded-[20px] bg-white px-4 py-3">
+                      <div>
+                        <div className="text-sm font-semibold text-[color:var(--ink-strong)]">
+                          {index + 1}. {section.title}
+                        </div>
+                        <div className="mt-1 text-xs text-[color:var(--ink-soft)]">{section.total_questions} questions</div>
+                      </div>
+                      <div className="rounded-full bg-[color:var(--blue-soft)] px-3 py-1 text-xs font-bold text-[color:var(--blue-deep)]">
+                        {section.duration_minutes} min
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[28px] bg-gradient-to-br from-[#f8edcf] to-[#fff7e6] p-5">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 text-[#a96700]" />
+                  <div>
+                    <div className="text-sm font-bold uppercase tracking-[0.24em] text-[#996100]">Important</div>
+                    <ul className="mt-4 space-y-3 text-sm leading-7 text-[color:var(--ink-main)]">
+                      <li>Camera and microphone must stay enabled during the whole attempt.</li>
+                      <li>Do not switch tabs or minimize the browser.</li>
+                      <li>You cannot pause the test after it starts.</li>
+                      <li>Snapshots and violation events may be recorded for review.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card-strong p-6 sm:p-8">
+            <span className="eyebrow">System Check</span>
+            <h2 className="mt-4 text-3xl font-extrabold">Verify your device access.</h2>
+            <p className="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">
+              Before entering the test, confirm that camera and microphone permissions are available.
+            </p>
+
+            <div className="mt-8 space-y-4">
+              <PermissionCard
+                active={cameraPermission}
+                icon={<Camera className="h-5 w-5" />}
+                title="Camera Access"
+                description="Used for presence monitoring and periodic capture during the session."
+              />
+              <PermissionCard
+                active={micPermission}
+                icon={<Mic className="h-5 w-5" />}
+                title="Microphone Access"
+                description="Used to confirm the session environment remains compliant."
+              />
+            </div>
+
+            <div className="mt-8 space-y-3">
+              {!cameraPermission || !micPermission ? (
+                <button onClick={requestPermissions} className="primary-btn w-full">
+                  Grant Permissions
+                </button>
+              ) : (
+                <button onClick={startTest} className="primary-btn w-full">
+                  Start Test
+                </button>
+              )}
+              <button onClick={() => (window.location.href = '/')} className="secondary-btn w-full">
+                Return to Dashboard
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function PermissionCard({
+  active,
+  icon,
+  title,
+  description,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className={`rounded-[26px] p-5 ${active ? 'bg-[#effff6]' : 'bg-[#f8f8ff]'}`}>
+      <div className="flex items-start gap-4">
+        <div
+          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
+            active ? 'bg-[#d5ffe9] text-[#13884f]' : 'bg-white text-[color:var(--blue-deep)]'
+          }`}
+        >
+          {icon}
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-extrabold">{title}</h3>
+            {active && <CheckCircle2 className="h-5 w-5 text-[#18a561]" />}
+          </div>
+          <p className="mt-2 text-sm leading-7 text-[color:var(--ink-soft)]">{description}</p>
         </div>
       </div>
     </div>

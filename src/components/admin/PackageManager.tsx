@@ -148,7 +148,7 @@ export function PackageManager() {
   };
 
   if (loading) {
-    return <div className="rounded-lg border border-gray-200 bg-white p-8 text-center">Loading packages...</div>;
+    return <div className="admin-surface p-8 text-center">Loading packages...</div>;
   }
 
   return (
@@ -176,7 +176,7 @@ export function PackageManager() {
           const isExpanded = expandedPackageId === pkg.id;
 
           return (
-            <div key={pkg.id} className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div key={pkg.id} className="admin-surface render-lite overflow-hidden">
               <div className="flex flex-col gap-4 p-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
@@ -243,7 +243,7 @@ export function PackageManager() {
               </div>
 
               {isExpanded && (
-                <div className="border-t border-gray-200 bg-gray-50 p-6">
+                <div className="border-t border-[rgba(119,123,179,0.12)] bg-[#f8f9ff] p-6">
                   <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
                       <h4 className="font-semibold text-gray-900">Sections in this package</h4>
@@ -270,13 +270,13 @@ export function PackageManager() {
 
                   <div className="grid gap-3">
                     {sections.length === 0 && (
-                      <div className="rounded-lg border border-dashed border-gray-300 bg-white p-6 text-center text-sm text-gray-600">
+                      <div className="admin-soft-surface p-6 text-center text-sm text-gray-600">
                         No sections yet. Add at least Listening, Structure, and Reading before publishing.
                       </div>
                     )}
 
                     {sections.map((section) => (
-                      <div key={section.id} className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div key={section.id} className="admin-soft-surface p-4">
                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                           <div className="space-y-1">
                             <div className="text-base font-semibold text-gray-900">{section.title}</div>
@@ -323,7 +323,7 @@ export function PackageManager() {
         })}
 
         {sortedPackages.length === 0 && (
-          <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center text-gray-600">
+          <div className="admin-surface p-10 text-center text-gray-600">
             No test packages yet. Start by creating one package and its sections.
           </div>
         )}
@@ -613,8 +613,8 @@ type ModalShellProps = {
 
 function ModalShell({ title, onClose, children }: ModalShellProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-xl rounded-xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="admin-surface w-full max-w-xl p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-xl font-bold text-gray-900">{title}</h3>
           <button onClick={onClose} className="text-sm text-gray-500 transition-colors hover:text-gray-700">

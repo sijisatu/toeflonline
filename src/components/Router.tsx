@@ -9,10 +9,13 @@ export function Router() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+      <div className="page-backdrop flex items-center justify-center px-4">
+        <div className="glass-card-strong w-full max-w-md p-10 text-center">
+          <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-[#d7e1ff] border-t-[color:var(--blue)]" />
+          <h2 className="mt-6 text-2xl font-extrabold">Preparing your workspace</h2>
+          <p className="mt-3 text-sm leading-7 text-[color:var(--ink-soft)]">
+            Loading account, role, and active testing context.
+          </p>
         </div>
       </div>
     );

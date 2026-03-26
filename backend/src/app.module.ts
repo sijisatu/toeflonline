@@ -11,6 +11,7 @@ import { RedisModule } from './shared/redis/redis.module';
 import { appConfigSchema } from './shared/config/app-config.schema';
 import { AppConfigService } from './shared/config/app-config.service';
 import { DbModule } from './modules/db/db.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   imports: [
@@ -28,8 +29,13 @@ import { DbModule } from './modules/db/db.module';
     SessionsModule,
     ProctoringModule,
     ReportsModule,
+    MediaModule,
   ],
   providers: [AppConfigService],
   exports: [AppConfigService],
 })
 export class AppModule {}
+
+
+
+
