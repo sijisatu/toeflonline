@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: toefl-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: toefl_online
+      POSTGRES_USER: toefl_app
+      POSTGRES_PASSWORD: change-me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/postgresql:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    container_name: toefl-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  adminer:
+    image: adminer:4
+    container_name: toefl-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
+  redis_data:

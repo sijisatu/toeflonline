@@ -1,0 +1,15 @@
+[Unit]
+Description=TOEFL Online Backend
+After=network.target postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=nizar
+WorkingDirectory=/opt/toeflonline/backend
+EnvironmentFile=/opt/toeflonline/backend/.env
+ExecStart=/usr/bin/npm run start:prod
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

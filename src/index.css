@@ -1,0 +1,252 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-base: #f6f4ff;
+    --bg-shell: rgba(255, 255, 255, 0.74);
+    --bg-panel: rgba(255, 255, 255, 0.88);
+    --bg-panel-strong: #ffffff;
+    --line-soft: rgba(110, 105, 170, 0.14);
+    --line-strong: rgba(47, 56, 112, 0.18);
+    --ink-strong: #1b2551;
+    --ink-main: #334269;
+    --ink-soft: #6b7695;
+    --blue: #2358e6;
+    --blue-deep: #173db7;
+    --blue-soft: #dfe7ff;
+    --mint: #63e9a6;
+    --mint-soft: #ddfff0;
+    --amber: #f3c87c;
+    --amber-soft: #fff0cf;
+    --rose-soft: #ffe4ea;
+    --shadow-xl: 0 28px 60px rgba(65, 74, 136, 0.16);
+    --shadow-lg: 0 18px 38px rgba(72, 80, 140, 0.12);
+    --shadow-md: 0 10px 24px rgba(71, 80, 140, 0.1);
+  }
+
+  * {
+    @apply border-transparent;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    color: var(--ink-main);
+    background:
+      radial-gradient(circle at top left, rgba(186, 209, 255, 0.65), transparent 30%),
+      radial-gradient(circle at top right, rgba(244, 224, 255, 0.7), transparent 26%),
+      linear-gradient(180deg, #fbfaff 0%, #f3f4ff 100%);
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Manrope', 'Plus Jakarta Sans', sans-serif;
+    color: var(--ink-strong);
+    letter-spacing: -0.03em;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    @apply outline-none;
+  }
+
+  ::selection {
+    background: rgba(35, 88, 230, 0.18);
+  }
+}
+
+@layer components {
+  .page-backdrop {
+    @apply relative min-h-screen overflow-hidden;
+  }
+
+  .page-backdrop::before,
+  .page-backdrop::after {
+    content: '';
+    @apply pointer-events-none absolute rounded-full blur-3xl;
+  }
+
+  .page-backdrop::before {
+    width: 20rem;
+    height: 20rem;
+    top: -7rem;
+    left: -7rem;
+    background: rgba(139, 186, 255, 0.24);
+  }
+
+  .page-backdrop::after {
+    width: 16rem;
+    height: 16rem;
+    right: -4rem;
+    top: 7rem;
+    background: rgba(237, 191, 255, 0.18);
+  }
+
+  .shell-wrap {
+    @apply relative mx-auto w-full max-w-7xl px-3 sm:px-6 lg:px-8;
+  }
+
+  .glass-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-lg);
+    @apply rounded-[26px] backdrop-blur-xl sm:rounded-[30px];
+  }
+
+  .glass-card-strong {
+    background: var(--bg-panel-strong);
+    border: 1px solid var(--line-soft);
+    box-shadow: var(--shadow-xl);
+    @apply rounded-[28px] sm:rounded-[32px];
+  }
+
+  .soft-card {
+    background: rgba(247, 248, 255, 0.92);
+    border: 1px solid rgba(122, 128, 182, 0.12);
+    @apply rounded-[22px] sm:rounded-[26px];
+  }
+
+  .section-title {
+    @apply text-3xl font-extrabold tracking-tight md:text-4xl;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center rounded-full px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] sm:text-xs;
+    background: rgba(35, 88, 230, 0.1);
+    color: var(--blue-deep);
+  }
+
+  .primary-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-white transition-all duration-200 sm:px-6;
+    background: linear-gradient(135deg, var(--blue) 0%, #3478ff 100%);
+    box-shadow: 0 18px 30px rgba(35, 88, 230, 0.22);
+  }
+
+  .primary-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 34px rgba(35, 88, 230, 0.3);
+  }
+
+  .secondary-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition-all sm:px-6;
+    color: var(--ink-strong);
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--line-strong);
+  }
+
+  .secondary-btn:hover {
+    @apply bg-white;
+    box-shadow: var(--shadow-md);
+  }
+
+  .ghost-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors;
+    color: var(--ink-main);
+    background: rgba(255, 255, 255, 0.46);
+  }
+
+  .ghost-btn:hover {
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+  .danger-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-red-700 transition-colors;
+    background: rgba(255, 233, 238, 0.95);
+    border: 1px solid rgba(238, 110, 138, 0.25);
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-semibold;
+    color: var(--ink-strong);
+  }
+
+  .field-input {
+    @apply w-full rounded-[18px] border px-4 py-3 text-sm transition-all sm:rounded-[20px];
+    background: rgba(255, 255, 255, 0.96);
+    border-color: rgba(119, 123, 179, 0.18);
+    color: var(--ink-strong);
+  }
+
+  .field-input:focus {
+    border-color: rgba(35, 88, 230, 0.35);
+    box-shadow: 0 0 0 4px rgba(35, 88, 230, 0.1);
+  }
+
+  .metric-card {
+    @apply glass-card p-5;
+  }
+
+  .metric-label {
+    @apply text-xs font-bold uppercase tracking-[0.24em];
+    color: var(--ink-soft);
+  }
+
+  .metric-value {
+    @apply mt-3 text-3xl font-extrabold sm:text-4xl;
+    color: var(--ink-strong);
+  }
+
+  .status-pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold;
+  }
+
+  .nav-pill {
+    @apply inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition-all;
+  }
+
+  .modal-scrim {
+    @apply fixed inset-0 z-50 flex items-end justify-center bg-[#101433]/40 p-3 backdrop-blur-sm sm:items-center sm:p-4;
+  }
+
+  .modal-card {
+    @apply glass-card-strong w-full max-w-2xl p-5 sm:p-6 md:p-8;
+  }
+
+  .admin-surface {
+    @apply rounded-[20px] border bg-white sm:rounded-[22px];
+    border-color: rgba(119, 123, 179, 0.12);
+  }
+
+  .admin-soft-surface {
+    @apply rounded-[18px] border sm:rounded-[20px];
+    background: #f7f8ff;
+    border-color: rgba(119, 123, 179, 0.1);
+  }
+
+  .render-lite {
+    content-visibility: auto;
+    contain-intrinsic-size: 320px;
+  }
+}
+
+@media (min-width: 640px) {
+  .page-backdrop::before {
+    width: 28rem;
+    height: 28rem;
+    top: -8rem;
+    left: -8rem;
+    background: rgba(139, 186, 255, 0.28);
+  }
+
+  .page-backdrop::after {
+    width: 22rem;
+    height: 22rem;
+    right: -5rem;
+    top: 8rem;
+    background: rgba(237, 191, 255, 0.2);
+  }
+}
